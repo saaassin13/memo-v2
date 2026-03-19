@@ -1,0 +1,47 @@
+name: memo_app
+description: "Memo App - A personal productivity application"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.0
+  riverpod_annotation: ^2.3.0
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Database
+  sqflite: ^2.3.0
+  drift: ^2.15.0
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
+
+  # UI
+  lucide_icons: ^0.257.0
+  fl_chart: ^0.66.0
+
+  # Utils
+  intl: ^0.19.0
+  uuid: ^4.3.0
+  share_plus: ^7.2.0
+  file_picker: ^6.1.0
+  package_info_plus: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.0
+  riverpod_generator: ^2.3.0
+  drift_dev: ^2.15.0
+
+flutter:
+  uses-material-design: true
