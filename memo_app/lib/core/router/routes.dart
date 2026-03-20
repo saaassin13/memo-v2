@@ -17,6 +17,7 @@ abstract class Routes {
   // Diary
   static const diaryList = '/apps/diary';
   static const diaryNew = '/apps/diary/new';
+  static const diaryManagement = '/apps/diary/management';
   static String diaryDetail(String id) => '/apps/diary/$id';
 
   // Countdown

@@ -45,11 +45,6 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
     // Watch diary for selected date
     final selectedDiaryAsync = ref.watch(diaryByDateProvider(_selectedDate));
 
-    // Watch all diaries for history list
-    final diariesAsync = ref.watch(
-      diaryListProvider(year: _currentMonth.year, month: _currentMonth.month),
-    );
-
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -64,7 +59,6 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
                   isDark,
                   dates,
                   selectedDiaryAsync,
-                  diariesAsync,
                 ),
                 loading: () => const Center(
                   child: CircularProgressIndicator(),
@@ -120,16 +114,16 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
                   ),
             ),
           ),
-          // Write diary button
+          // Diary management button
           TextButton.icon(
-            onPressed: () => _navigateToNewDiary(),
+            onPressed: () => context.push(Routes.diaryManagement),
             icon: Icon(
-              LucideIcons.pencil,
+              LucideIcons.settings2,
               size: 18,
               color: isDark ? AppColorsDark.primary : AppColors.primary,
             ),
             label: Text(
-              '写日记',
+              '管理日记',
               style: TextStyle(
                 color: isDark ? AppColorsDark.primary : AppColors.primary,
               ),
@@ -145,7 +139,6 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
     bool isDark,
     List<DateTime> datesWithEntries,
     AsyncValue<DiaryEntry?> selectedDiaryAsync,
-    AsyncValue<List<DiaryEntry>> diariesAsync,
   ) {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -159,9 +152,8 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
             setState(() {
               _selectedDate = date;
             });
-            // Bug #5: Check if the selected date has a diary entry
-            // If yes, navigate to edit; if no, navigate to new diary with that date
-            _handleDateSelected(date, datesWithEntries);
+            // Invalidate the provider to reload data for the new date
+            ref.invalidate(diaryByDateProvider(date));
           },
           onMonthChanged: (month) {
             setState(() {
@@ -188,10 +180,6 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
           ),
           error: (e, s) => const SizedBox.shrink(),
         ),
-        const SizedBox(height: 24),
-
-        // History section
-        _buildHistorySection(context, isDark, diariesAsync),
       ],
     );
   }
@@ -288,83 +276,12 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
     );
   }
 
-  Widget _buildHistorySection(
-    BuildContext context,
-    bool isDark,
-    AsyncValue<List<DiaryEntry>> diariesAsync,
-  ) {
-    return diariesAsync.when(
-      data: (diaries) {
-        // Filter out selected date diary from history
-        final historyDiaries = diaries
-            .where((d) => !_isSameDay(d.date, _selectedDate))
-            .toList();
-
-        if (historyDiaries.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '历史日记',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isDark
-                    ? AppColorsDark.mutedForeground
-                    : AppColors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...historyDiaries.map((diary) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: DiaryCard(
-                    diary: diary,
-                    showDate: true, // Show date in history list (Bug 4)
-                    onTap: () => context.push(Routes.diaryDetail(diary.id)),
-                    onEdit: () => context.push(Routes.diaryDetail(diary.id)),
-                    onDelete: () => _confirmDelete(diary),
-                  ),
-                )),
-          ],
-        );
-      },
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (e, s) => const SizedBox.shrink(),
-    );
-  }
-
   void _navigateToNewDiary({DateTime? date}) {
     // Navigate to new diary page with optional date
     if (date != null) {
       context.push('${Routes.diaryNew}?date=${date.toIso8601String()}');
     } else {
       context.push(Routes.diaryNew);
-    }
-  }
-
-  /// Bug #5: Handle date selection - navigate to existing diary or create new one
-  void _handleDateSelected(DateTime date, List<DateTime> datesWithEntries) {
-    // Check if this date has an existing diary
-    final hasEntry = datesWithEntries.any((d) => _isSameDay(d, date));
-
-    if (hasEntry) {
-      // Navigate to the existing diary for this date
-      ref.read(diaryByDateProvider(date).future).then((diary) {
-        if (diary != null && mounted) {
-          context.push(Routes.diaryDetail(diary.id));
-        }
-      });
-    } else {
-      // Navigate to create a new diary with this date
-      _navigateToNewDiary(date: date);
     }
   }
 

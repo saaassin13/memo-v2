@@ -373,16 +373,21 @@ class _DiaryEditScreenState extends ConsumerState<DiaryEditScreen> {
     try {
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
+      // Ensure mood and weather always have values
+      final moodValue = _mood.value;
+      final weatherValue = _weather.value;
 
       if (widget.id != null && _existingDiary != null) {
         // Update existing diary
+        // Normalize date to midnight to ensure consistent date matching
+        final normalizedDate = DateTime(_date.year, _date.month, _date.day);
         final updatedDiary = DiaryEntry(
           id: _existingDiary!.id,
-          date: _date,
+          date: normalizedDate,
           title: title,
           content: content,
-          mood: _mood.value,
-          weather: _weather.value,
+          mood: moodValue,
+          weather: weatherValue,
           images: _existingDiary!.images,
           createdAt: _existingDiary!.createdAt,
           updatedAt: DateTime.now(),
@@ -400,8 +405,8 @@ class _DiaryEditScreenState extends ConsumerState<DiaryEditScreen> {
               date: _date,
               title: title,
               content: content,
-              mood: _mood.value,
-              weather: _weather.value,
+              mood: moodValue,
+              weather: weatherValue,
             );
       }
 

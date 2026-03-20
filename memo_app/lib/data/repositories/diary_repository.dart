@@ -20,7 +20,9 @@ class DiaryRepository {
     final start = DateTime(date.year, date.month, date.day);
     final end = start.add(const Duration(days: 1));
     return (_db.select(_db.diaryEntries)
-          ..where((d) => d.date.isBetweenValues(start, end)))
+          ..where((d) =>
+              d.date.isBiggerOrEqualValue(start) &
+              d.date.isSmallerThanValue(end)))
         .getSingleOrNull();
   }
 
@@ -29,9 +31,32 @@ class DiaryRepository {
     final start = DateTime(year, month, 1);
     final end = DateTime(year, month + 1, 1);
     return (_db.select(_db.diaryEntries)
-          ..where((d) => d.date.isBetweenValues(start, end))
+          ..where((d) =>
+              d.date.isBiggerOrEqualValue(start) &
+              d.date.isSmallerThanValue(end))
           ..orderBy([(d) => OrderingTerm.desc(d.date)]))
         .get();
+  }
+
+  /// 按周获取（给定日期所在周）
+  Future<List<DiaryEntry>> getByWeek(DateTime date) async {
+    final weekday = date.weekday; // 1=Mon, 7=Sun
+    final start = DateTime(date.year, date.month, date.day - weekday + 1);
+    final end = start.add(const Duration(days: 7));
+    return (_db.select(_db.diaryEntries)
+          ..where((d) =>
+              d.date.isBiggerOrEqualValue(start) &
+              d.date.isSmallerThanValue(end))
+          ..orderBy([(d) => OrderingTerm.desc(d.date)]))
+        .get();
+  }
+
+  /// 获取所有日记数量
+  Future<int> getCount() async {
+    final count = countAll();
+    final query = _db.selectOnly(_db.diaryEntries)..addColumns([count]);
+    final result = await query.getSingle();
+    return result.read(count) ?? 0;
   }
 
   /// 按 ID 获取单个日记
@@ -45,9 +70,12 @@ class DiaryRepository {
     final start = DateTime(year, month, 1);
     final end = DateTime(year, month + 1, 1);
     final entries = await (_db.select(_db.diaryEntries)
-          ..where((d) => d.date.isBetweenValues(start, end)))
+          ..where((d) =>
+              d.date.isBiggerOrEqualValue(start) &
+              d.date.isSmallerThanValue(end)))
         .get();
-    return entries.map((e) => e.date).toList();
+    // Normalize dates to midnight for consistent comparison
+    return entries.map((e) => DateTime(e.date.year, e.date.month, e.date.day)).toList();
   }
 
   /// 搜索日记
@@ -99,7 +127,9 @@ class DiaryRepository {
     final start = DateTime(year, month, 1);
     final end = DateTime(year, month + 1, 1);
     return (_db.select(_db.diaryEntries)
-          ..where((d) => d.date.isBetweenValues(start, end))
+          ..where((d) =>
+              d.date.isBiggerOrEqualValue(start) &
+              d.date.isSmallerThanValue(end))
           ..orderBy([(d) => OrderingTerm.desc(d.date)]))
         .watch();
   }

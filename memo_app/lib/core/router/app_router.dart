@@ -12,6 +12,7 @@ import '../../ui/screens/memo/memo_list_screen.dart';
 import '../../ui/screens/memo/memo_detail_edit_screen.dart';
 import '../../ui/screens/diary/diary_list_screen.dart';
 import '../../ui/screens/diary/diary_detail_edit_screen.dart';
+import '../../ui/screens/diary/diary_management_screen.dart';
 import '../../ui/screens/countdown/countdown_screen.dart';
 import '../../ui/screens/accounting/accounting_screen.dart';
 import '../../ui/screens/accounting/accounting_stats_screen.dart';
@@ -131,6 +132,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 child: DiaryDetailEditScreen(initialDate: initialDate),
               );
             },
+          ),
+          GoRoute(
+            path: 'management',
+            name: 'diary-management',
+            pageBuilder: (context, state) => PageTransitions.slideFromRight(
+              key: state.pageKey,
+              child: const DiaryManagementScreen(),
+            ),
           ),
           GoRoute(
             path: ':id',

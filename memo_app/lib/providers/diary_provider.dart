@@ -40,13 +40,15 @@ class DiaryList extends _$DiaryList {
   }) async {
     final repo = ref.read(diaryRepositoryProvider);
     final now = DateTime.now();
+    // Normalize date to midnight to ensure consistent date matching
+    final normalizedDate = DateTime(date.year, date.month, date.day);
     await repo.insert(DiaryEntriesCompanion(
       id: Value(_uuid.v4()),
-      date: Value(date),
+      date: Value(normalizedDate),
       title: Value(title),
       content: Value(content),
-      mood: Value(mood),
-      weather: Value(weather),
+      mood: Value(mood ?? 'happy'),
+      weather: Value(weather ?? 'sunny'),
       images: Value(images),
       createdAt: Value(now),
       updatedAt: Value(now),
@@ -88,6 +90,20 @@ Future<DiaryEntry?> diaryById(DiaryByIdRef ref, String id) async {
 Future<List<DateTime>> diaryDates(DiaryDatesRef ref, int year, int month) async {
   final repo = ref.watch(diaryRepositoryProvider);
   return repo.getDatesWithEntries(year, month);
+}
+
+/// 按周获取日记 Provider
+@riverpod
+Future<List<DiaryEntry>> diariesByWeek(DiariesByWeekRef ref, DateTime date) async {
+  final repo = ref.watch(diaryRepositoryProvider);
+  return repo.getByWeek(date);
+}
+
+/// 日记总数 Provider
+@riverpod
+Future<int> diaryCount(DiaryCountRef ref) async {
+  final repo = ref.watch(diaryRepositoryProvider);
+  return repo.getCount();
 }
 
 /// 搜索日记 Provider

@@ -45,10 +45,15 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
   bool _isEditMode = false;
   DiaryEntry? _existingDiary;
 
+  void _onContentChanged() {
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _quillController = QuillController.basic();
+    _quillController.addListener(_onContentChanged);
     _date = widget.initialDate ?? DateTime.now();
 
     if (widget.id != null) {
@@ -62,6 +67,7 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _quillController.removeListener(_onContentChanged);
     _quillController.dispose();
     _contentFocusNode.dispose();
     super.dispose();
@@ -82,16 +88,20 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
           try {
             // Try to parse as Delta JSON
             final deltaJson = jsonDecode(diary.content) as List;
+            _quillController.removeListener(_onContentChanged);
             _quillController = QuillController(
               document: Document.fromJson(deltaJson),
               selection: const TextSelection.collapsed(offset: 0),
             );
+            _quillController.addListener(_onContentChanged);
           } catch (_) {
             // Fallback to plain text if not valid JSON
+            _quillController.removeListener(_onContentChanged);
             _quillController = QuillController(
               document: Document()..insert(0, diary.content),
               selection: const TextSelection.collapsed(offset: 0),
             );
+            _quillController.addListener(_onContentChanged);
           }
         }
       });
@@ -798,16 +808,20 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
       final title = _titleController.text.trim();
       // Save content as Delta JSON to preserve formatting
       final content = _deltaJsonContent;
+      // Always use current weather and mood values with safe defaults
+      final moodValue = _mood.value.isNotEmpty ? _mood.value : Mood.happy.value;
+      final weatherValue = _weather.value.isNotEmpty ? _weather.value : Weather.sunny.value;
 
       if (widget.id != null && _existingDiary != null) {
         // Update existing diary
+        final normalizedDate = DateTime(_date.year, _date.month, _date.day);
         final updatedDiary = DiaryEntry(
           id: _existingDiary!.id,
-          date: _date,
+          date: normalizedDate,
           title: title,
           content: content,
-          mood: _mood.value,
-          weather: _weather.value,
+          mood: moodValue,
+          weather: weatherValue,
           images: _existingDiary!.images,
           createdAt: _existingDiary!.createdAt,
           updatedAt: DateTime.now(),
@@ -816,7 +830,10 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
             .read(diaryListProvider(year: _date.year, month: _date.month)
                 .notifier)
             .updateEntry(updatedDiary);
+        // Invalidate related providers to refresh calendar and diary display
         ref.invalidate(diaryByIdProvider(widget.id!));
+        ref.invalidate(diaryDatesProvider(_date.year, _date.month));
+        ref.invalidate(diaryByDateProvider(_date));
 
         // Reload and exit edit mode
         final updated = await ref.read(diaryByIdProvider(widget.id!).future);
@@ -835,8 +852,8 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
               date: _date,
               title: title,
               content: content,
-              mood: _mood.value,
-              weather: _weather.value,
+              mood: moodValue,
+              weather: weatherValue,
             );
 
         // Invalidate related providers
@@ -913,11 +930,15 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
     );
 
     if (confirmed == true && mounted) {
-      final now = DateTime.now();
       ref
-          .read(diaryListProvider(year: now.year, month: now.month).notifier)
+          .read(diaryListProvider(year: _date.year, month: _date.month).notifier)
           .delete(widget.id!);
-      context.pop();
+      // Invalidate related providers to refresh calendar dots and diary display
+      ref.invalidate(diaryDatesProvider(_date.year, _date.month));
+      ref.invalidate(diaryByDateProvider(_date));
+      if (mounted) {
+        context.pop();
+      }
     }
   }
 }
