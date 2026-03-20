@@ -4,6 +4,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../core/theme/colors.dart';
 import '../data/database/app_database.dart';
+import '../ui/screens/diary/widgets/mood_selector.dart';
+import '../ui/screens/diary/widgets/weather_selector.dart';
 import 'countdown_provider.dart';
 import 'diary_provider.dart';
 import 'todo_provider.dart';
@@ -116,7 +118,7 @@ Future<List<CalendarEvent>> calendarEvents(
           title: diary.title.isNotEmpty ? diary.title : '日记',
           date: diary.date,
           color: AppColors.accent,
-          subtitle: diary.mood,
+          subtitle: Mood.fromValue(diary.mood)?.emoji ?? diary.mood,
         ));
       }
     }
@@ -306,8 +308,8 @@ class CalendarEventDetail {
       date: diary.date,
       description: diary.content,
       extra: {
-        'mood': diary.mood,
-        'weather': diary.weather,
+        'mood': Mood.fromValue(diary.mood)?.emoji ?? diary.mood,
+        'weather': Weather.fromValue(diary.weather)?.label ?? diary.weather,
         'images': diary.images,
         'createdAt': diary.createdAt,
         'updatedAt': diary.updatedAt,
