@@ -326,9 +326,9 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: DiaryCard(
                     diary: diary,
+                    showDate: true, // Show date in history list (Bug 4)
                     onTap: () => context.push(Routes.diaryDetail(diary.id)),
-                    onEdit: () =>
-                        context.push('${Routes.diaryDetail(diary.id)}/edit'),
+                    onEdit: () => context.push(Routes.diaryDetail(diary.id)),
                     onDelete: () => _confirmDelete(diary),
                   ),
                 )),

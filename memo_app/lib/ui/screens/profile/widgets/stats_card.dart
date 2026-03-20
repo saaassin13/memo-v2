@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/routes.dart';
 import '../../../../providers/todo_provider.dart';
 import '../../../../providers/diary_provider.dart';
 import '../../../../providers/memo_provider.dart';
@@ -34,17 +36,30 @@ class StatsCard extends ConsumerWidget {
     final diaryCount = diariesAsync.valueOrNull?.length ?? 0;
     final memoCount = memosAsync.valueOrNull?.length ?? 0;
 
+    // Bug 18: Make stats items clickable to navigate to corresponding pages
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _StatItem(label: '待办', value: todoCount),
+            _StatItem(
+              label: '待办',
+              value: todoCount,
+              onTap: () => context.go(Routes.todo),
+            ),
             _buildDivider(context),
-            _StatItem(label: '日记', value: diaryCount),
+            _StatItem(
+              label: '日记',
+              value: diaryCount,
+              onTap: () => context.push(Routes.diaryList),
+            ),
             _buildDivider(context),
-            _StatItem(label: '备忘录', value: memoCount),
+            _StatItem(
+              label: '备忘录',
+              value: memoCount,
+              onTap: () => context.push(Routes.memoList),
+            ),
           ],
         ),
       ),
@@ -63,31 +78,43 @@ class StatsCard extends ConsumerWidget {
 class _StatItem extends StatelessWidget {
   final String label;
   final int value;
+  final VoidCallback? onTap; // Bug 18: Add tap callback
 
-  const _StatItem({required this.label, required this.value});
+  const _StatItem({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$value',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$value',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

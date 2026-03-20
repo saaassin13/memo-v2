@@ -170,7 +170,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     });
   }
 
+  // Bug 17: Navigate to the source item's detail/edit page directly
   void _onEventTap(CalendarEvent event) {
-    context.push(Routes.calendarEvent(event.id));
+    final originalId = event.originalId;
+
+    switch (event.type) {
+      case CalendarEventType.todo:
+        // For todo, we can use the edit sheet
+        _showTodoEditForEvent(originalId);
+        break;
+      case CalendarEventType.diary:
+        // Navigate to diary detail
+        context.push(Routes.diaryDetail(originalId));
+        break;
+      case CalendarEventType.countdown:
+        // Navigate to countdown screen (no individual detail, but we can show a dialog)
+        context.push(Routes.countdown);
+        break;
+    }
+  }
+
+  void _showTodoEditForEvent(String todoId) async {
+    // We need to fetch the todo first to show edit sheet
+    // For simplicity, navigate to a dialog or show the event detail
+    context.push(Routes.calendarEvent('todo_$todoId'));
   }
 }

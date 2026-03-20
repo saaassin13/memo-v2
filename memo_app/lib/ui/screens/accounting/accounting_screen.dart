@@ -76,8 +76,8 @@ class _AccountingScreenState extends ConsumerState<AccountingScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => AddTransactionSheet(
         initialType: initialType ?? (_tabController.index == 0 ? 'expense' : 'income'),
-        onSave: (data) {
-          ref
+        onSave: (data) async {
+          await ref
               .read(transactionListProvider(
                 year: _currentYear,
                 month: _currentMonth,
@@ -89,18 +89,22 @@ class _AccountingScreenState extends ConsumerState<AccountingScreen>
                 date: data.date,
                 note: data.note,
               );
+          // Bug 6: Invalidate monthly stats to refresh totals after adding
+          ref.invalidate(monthlyStatsProvider(_currentYear, _currentMonth));
         },
       ),
     );
   }
 
-  void _deleteTransaction(String id) {
-    ref
+  void _deleteTransaction(String id) async {
+    await ref
         .read(transactionListProvider(
           year: _currentYear,
           month: _currentMonth,
         ).notifier)
         .delete(id);
+    // Bug 6: Invalidate monthly stats to refresh totals after deleting
+    ref.invalidate(monthlyStatsProvider(_currentYear, _currentMonth));
   }
 
   @override
@@ -213,7 +217,8 @@ class _AccountingScreenState extends ConsumerState<AccountingScreen>
               color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
             ),
             onPressed: () {
-              // TODO: 统计详情页
+              // Bug 8: Navigate to statistics page
+              context.push('/apps/accounting/stats');
             },
           ),
         ],

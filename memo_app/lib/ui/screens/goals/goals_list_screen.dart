@@ -161,6 +161,8 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen> {
                   goal: goal,
                   onTap: () => _navigateToDetail(goal.id),
                   onDelete: () => _deleteGoal(goal.id),
+                  // Bug 10: Quick progress from list
+                  onQuickProgress: (newValue) => _updateProgress(goal.id, newValue),
                 ),
               )),
         ],
@@ -253,6 +255,11 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen> {
 
   void _deleteGoal(String id) {
     ref.read(goalListProvider().notifier).delete(id);
+  }
+
+  // Bug 10: Update progress from list
+  void _updateProgress(String id, int newValue) {
+    ref.read(goalListProvider().notifier).updateProgress(id, newValue);
   }
 
   void _showEditSheet(BuildContext context, {Goal? goal}) {

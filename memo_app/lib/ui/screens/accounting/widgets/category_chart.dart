@@ -46,32 +46,61 @@ class _CategoryChartState extends State<CategoryChart> {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          // 饼图
+          // 饼图 - Bug 7: Improved chart interaction
           Expanded(
             flex: 5,
             child: AspectRatio(
               aspectRatio: 1,
-              child: PieChart(
-                PieChartData(
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      setState(() {
-                        if (!event.isInterestedForInteractions ||
-                            pieTouchResponse == null ||
-                            pieTouchResponse.touchedSection == null) {
-                          touchedIndex = null;
-                          return;
-                        }
-                        touchedIndex =
-                            pieTouchResponse.touchedSection!.touchedSectionIndex;
-                      });
-                    },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      pieTouchData: PieTouchData(
+                        enabled: true,
+                        touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                          setState(() {
+                            if (!event.isInterestedForInteractions ||
+                                pieTouchResponse == null ||
+                                pieTouchResponse.touchedSection == null) {
+                              touchedIndex = null;
+                              return;
+                            }
+                            touchedIndex =
+                                pieTouchResponse.touchedSection!.touchedSectionIndex;
+                          });
+                        },
+                      ),
+                      borderData: FlBorderData(show: false),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 36,
+                      sections: _buildPieSections(sortedEntries),
+                    ),
                   ),
-                  borderData: FlBorderData(show: false),
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 36,
-                  sections: _buildPieSections(sortedEntries),
-                ),
+                  // Center text showing selected category details
+                  if (touchedIndex != null && touchedIndex! < sortedEntries.length)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          sortedEntries[touchedIndex!].key,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+                          ),
+                        ),
+                        Text(
+                          sortedEntries[touchedIndex!].value.toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: getCategoryConfig(widget.type, sortedEntries[touchedIndex!].key).color,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ),

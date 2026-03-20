@@ -6,6 +6,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../components/buttons/app_button.dart';
 import '../../../components/inputs/app_input.dart';
 import 'countdown_card.dart';
+import 'lunar_date_picker.dart';
 
 /// Data class for countdown creation/update.
 class CountdownData {
@@ -54,6 +55,7 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
   DateTime _targetDate = DateTime.now();
   CountdownCategory _category = CountdownCategory.important;
   bool _repeatYearly = false;
+  bool _isLunarCalendar = false;
 
   @override
   void initState() {
@@ -186,8 +188,21 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
               autofocus: true,
             ),
             const SizedBox(height: 16),
-            // Date picker
-            _buildDatePicker(isDark),
+            // Date picker with lunar support (Bug 5)
+            LunarDatePicker(
+              initialDate: _targetDate,
+              isLunar: _isLunarCalendar,
+              onDateChanged: (date) {
+                setState(() {
+                  _targetDate = date;
+                });
+              },
+              onLunarToggled: (isLunar) {
+                setState(() {
+                  _isLunarCalendar = isLunar;
+                });
+              },
+            ),
             const SizedBox(height: 16),
             // Category selector
             _buildCategorySelector(isDark),

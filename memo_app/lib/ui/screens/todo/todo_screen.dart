@@ -9,6 +9,7 @@ import '../../components/buttons/app_button.dart';
 import '../../components/feedback/empty_state.dart';
 import 'widgets/category_filter.dart';
 import 'widgets/todo_edit_sheet.dart';
+import 'widgets/todo_filter_sheet.dart';
 import 'widgets/todo_list_section.dart';
 
 /// The main Todo screen displaying todo list with category filter.
@@ -22,6 +23,8 @@ class TodoScreen extends ConsumerStatefulWidget {
 
 class _TodoScreenState extends ConsumerState<TodoScreen> {
   String _activeCategory = '全部';
+  // Bug 15: Filter options
+  TodoFilterOptions _filterOptions = const TodoFilterOptions();
 
   static const List<String> _categories = ['全部', '工作', '生活', '学习', '杂项'];
 
@@ -109,9 +112,8 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               LucideIcons.filter,
               color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
             ),
-            onPressed: () {
-              // TODO: Filter functionality
-            },
+            // Bug 15: Implement filter functionality
+            onPressed: () => _showFilterSheet(context),
           ),
         ],
       ),
@@ -119,20 +121,58 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   }
 
   Widget _buildTodoContent(List<Todo> todos) {
-    // Split into pending and completed
-    final pending = todos.where((t) => !t.completed).toList();
-    final completed = todos.where((t) => t.completed).toList();
+    // Bug 15: Apply filter options
+    var filteredTodos = todos.toList();
 
-    // Sort pending by due date
-    pending.sort((a, b) {
-      if (a.dueDate == null && b.dueDate == null) return 0;
-      if (a.dueDate == null) return 1;
-      if (b.dueDate == null) return -1;
-      return a.dueDate!.compareTo(b.dueDate!);
+    // Filter by completed status
+    if (!_filterOptions.showCompleted) {
+      filteredTodos = filteredTodos.where((t) => !t.completed).toList();
+    }
+
+    // Filter by overdue status
+    if (!_filterOptions.showOverdue) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      filteredTodos = filteredTodos.where((t) {
+        if (t.completed || t.dueDate == null) return true;
+        final dueDay = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day);
+        return !dueDay.isBefore(today);
+      }).toList();
+    }
+
+    // Sort based on filter options
+    filteredTodos.sort((a, b) {
+      int result = 0;
+      switch (_filterOptions.sortBy) {
+        case 'dueDate':
+          if (a.dueDate == null && b.dueDate == null) {
+            result = 0;
+          } else if (a.dueDate == null) {
+            result = 1;
+          } else if (b.dueDate == null) {
+            result = -1;
+          } else {
+            result = a.dueDate!.compareTo(b.dueDate!);
+          }
+          break;
+        case 'createdAt':
+          result = a.createdAt.compareTo(b.createdAt);
+          break;
+        case 'title':
+          result = a.title.compareTo(b.title);
+          break;
+        default:
+          result = 0;
+      }
+      return _filterOptions.sortAscending ? result : -result;
     });
 
+    // Split into pending and completed
+    final pending = filteredTodos.where((t) => !t.completed).toList();
+    final completed = filteredTodos.where((t) => t.completed).toList();
+
     // Check if empty
-    if (todos.isEmpty) {
+    if (filteredTodos.isEmpty) {
       return _buildEmptyState();
     }
 
@@ -230,6 +270,23 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
                   note: data.note,
                 );
           }
+        },
+      ),
+    );
+  }
+
+  // Bug 15: Show filter bottom sheet
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TodoFilterSheet(
+        currentOptions: _filterOptions,
+        onApply: (options) {
+          setState(() {
+            _filterOptions = options;
+          });
         },
       ),
     );

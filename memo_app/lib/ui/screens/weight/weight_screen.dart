@@ -401,18 +401,24 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => AddWeightSheet(
         initialWeight: initialWeight,
-        onSave: (data) {
-          ref.read(weightListProvider().notifier).add(
+        onSave: (data) async {
+          await ref.read(weightListProvider().notifier).add(
                 weight: data.weight,
                 date: data.date,
                 note: data.note,
               );
+          // Bug 13: Invalidate providers to auto-refresh after adding
+          ref.invalidate(weightsStreamProvider);
+          ref.invalidate(weightStatsProvider);
         },
       ),
     );
   }
 
-  void _deleteRecord(String id) {
-    ref.read(weightListProvider().notifier).delete(id);
+  void _deleteRecord(String id) async {
+    await ref.read(weightListProvider().notifier).delete(id);
+    // Bug 13: Invalidate providers to auto-refresh after deleting
+    ref.invalidate(weightsStreamProvider);
+    ref.invalidate(weightStatsProvider);
   }
 }

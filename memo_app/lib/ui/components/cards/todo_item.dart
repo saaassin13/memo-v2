@@ -52,13 +52,14 @@ class TodoItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final categoryColor = _getCategoryColor(category);
 
+    // Bug 16: Tap to edit, remove three-dot menu, move type and date to right
     return InkWell(
-      onTap: onTap,
+      onTap: onEdit ?? onTap, // Tap to open edit page
       borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Checkbox
             GestureDetector(
@@ -66,7 +67,6 @@ class TodoItem extends StatelessWidget {
               child: Container(
                 width: 24,
                 height: 24,
-                margin: const EdgeInsets.only(top: 2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -89,76 +89,63 @@ class TodoItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Content
+            // Title - Bug 16: Only title on the left
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: completed
-                          ? (isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground)
-                          : (isDark ? AppColorsDark.foreground : AppColors.foreground),
-                      decoration: completed ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  // Category and date
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: completed
+                      ? (isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground)
+                      : (isDark ? AppColorsDark.foreground : AppColors.foreground),
+                  decoration: completed ? TextDecoration.lineThrough : null,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Bug 16: Category and date on the right side
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppBadge(
+                  label: category,
+                  color: categoryColor,
+                  backgroundColor: categoryColor.withOpacity(0.15),
+                ),
+                if (dueDate != null) ...[
+                  const SizedBox(height: 4),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      AppBadge(
-                        label: category,
-                        color: categoryColor,
-                        backgroundColor: categoryColor.withOpacity(0.15),
+                      Icon(
+                        LucideIcons.calendar,
+                        size: 12,
+                        color: _isOverdue(dueDate!)
+                            ? (isDark ? AppColorsDark.destructive : AppColors.destructive)
+                            : (isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground),
                       ),
-                      if (dueDate != null) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          LucideIcons.calendar,
-                          size: 14,
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(dueDate!),
+                        style: TextStyle(
+                          fontSize: 11,
                           color: _isOverdue(dueDate!)
                               ? (isDark ? AppColorsDark.destructive : AppColors.destructive)
-                              : (isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground),
+                              : (isDark
+                                  ? AppColorsDark.mutedForeground
+                                  : AppColors.mutedForeground),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(dueDate!),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _isOverdue(dueDate!)
-                                ? (isDark ? AppColorsDark.destructive : AppColors.destructive)
-                                : (isDark
-                                    ? AppColorsDark.mutedForeground
-                                    : AppColors.mutedForeground),
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ],
-              ),
+              ],
             ),
-            // More button
-            if (onEdit != null || onDelete != null)
-              Builder(
-                builder: (context) => GestureDetector(
-                  onTapDown: (details) {
-                    _showMenu(context, details.globalPosition);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      LucideIcons.moreVertical,
-                      size: 20,
-                      color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
-                    ),
-                  ),
-                ),
-              ),
+            // Bug 16: Removed three-dot menu button
           ],
         ),
       ),

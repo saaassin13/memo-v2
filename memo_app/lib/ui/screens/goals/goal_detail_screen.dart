@@ -486,18 +486,114 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
   }
 
   Widget _buildQuickActions(Goal goal, bool isDark) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: AppButton(
-            label: goal.completed ? '标记为进行中' : '标记为完成',
-            icon: goal.completed ? LucideIcons.rotateCcw : LucideIcons.check,
-            variant: goal.completed ? ButtonVariant.secondary : ButtonVariant.primary,
-            onPressed: () => _toggleComplete(goal),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                label: goal.completed ? '标记为进行中' : '标记为完成',
+                icon: goal.completed ? LucideIcons.rotateCcw : LucideIcons.check,
+                variant: goal.completed ? ButtonVariant.secondary : ButtonVariant.primary,
+                onPressed: () => _toggleComplete(goal),
+              ),
+            ),
+          ],
         ),
+        // Bug 12: Clone goal button (only for completed goals)
+        if (goal.completed) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: '克隆目标重新开始',
+                  icon: LucideIcons.copy,
+                  variant: ButtonVariant.secondary,
+                  onPressed: () => _cloneGoal(goal),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
+  }
+
+  // Bug 12: Clone goal functionality
+  void _cloneGoal(Goal goal) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          '克隆目标',
+          style: TextStyle(
+            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+          ),
+        ),
+        content: Text(
+          '将以「${goal.title}」为模板创建新目标，进度从零开始。',
+          style: TextStyle(
+            color: isDark
+                ? AppColorsDark.mutedForeground
+                : AppColors.mutedForeground,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              '取消',
+              style: TextStyle(
+                color: isDark
+                    ? AppColorsDark.mutedForeground
+                    : AppColors.mutedForeground,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              '克隆',
+              style: TextStyle(
+                color: isDark ? AppColorsDark.primary : AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // Create new goal based on the current one
+      await ref.read(goalListProvider().notifier).add(
+            title: goal.title,
+            description: goal.description,
+            type: goal.type,
+            targetValue: goal.targetValue,
+            unit: goal.unit,
+            startDate: DateTime.now(),
+            endDate: goal.endDate != null
+                ? DateTime.now().add(
+                    goal.endDate!.difference(goal.startDate),
+                  )
+                : null,
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('目标已克隆')),
+        );
+        // Navigate back to list
+        context.pop();
+      }
+    }
   }
 
   Widget _buildDeleteButton(Goal goal, bool isDark) {

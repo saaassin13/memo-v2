@@ -9,13 +9,12 @@ import '../../ui/screens/calendar/calendar_event_screen.dart';
 import '../../ui/screens/profile/profile_screen.dart';
 import '../../ui/screens/settings/settings_screen.dart';
 import '../../ui/screens/memo/memo_list_screen.dart';
-import '../../ui/screens/memo/memo_edit_screen.dart';
-import '../../ui/screens/memo/memo_detail_screen.dart';
+import '../../ui/screens/memo/memo_detail_edit_screen.dart';
 import '../../ui/screens/diary/diary_list_screen.dart';
-import '../../ui/screens/diary/diary_edit_screen.dart';
-import '../../ui/screens/diary/diary_detail_screen.dart';
+import '../../ui/screens/diary/diary_detail_edit_screen.dart';
 import '../../ui/screens/countdown/countdown_screen.dart';
 import '../../ui/screens/accounting/accounting_screen.dart';
+import '../../ui/screens/accounting/accounting_stats_screen.dart';
 import '../../ui/screens/goals/goals_list_screen.dart';
 import '../../ui/screens/goals/goal_detail_screen.dart';
 import '../../ui/screens/weight/weight_screen.dart';
@@ -77,7 +76,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Memo module
+      // Memo module - using combined detail/edit screen
       GoRoute(
         path: '/apps/memo',
         name: 'memo-list',
@@ -91,7 +90,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'memo-new',
             pageBuilder: (context, state) => PageTransitions.slideFromBottom(
               key: state.pageKey,
-              child: const MemoEditScreen(),
+              child: const MemoDetailEditScreen(),
             ),
           ),
           GoRoute(
@@ -101,27 +100,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               final id = state.pathParameters['id']!;
               return PageTransitions.slideFromRight(
                 key: state.pageKey,
-                child: MemoDetailScreen(id: id),
+                child: MemoDetailEditScreen(id: id),
               );
             },
-            routes: [
-              GoRoute(
-                path: 'edit',
-                name: 'memo-edit',
-                pageBuilder: (context, state) {
-                  final id = state.pathParameters['id']!;
-                  return PageTransitions.slideFromBottom(
-                    key: state.pageKey,
-                    child: MemoEditScreen(id: id),
-                  );
-                },
-              ),
-            ],
           ),
         ],
       ),
 
-      // Diary module
+      // Diary module - using combined detail/edit screen
       GoRoute(
         path: '/apps/diary',
         name: 'diary-list',
@@ -142,7 +128,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               }
               return PageTransitions.slideFromBottom(
                 key: state.pageKey,
-                child: DiaryEditScreen(initialDate: initialDate),
+                child: DiaryDetailEditScreen(initialDate: initialDate),
               );
             },
           ),
@@ -153,22 +139,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               final id = state.pathParameters['id']!;
               return PageTransitions.slideFromRight(
                 key: state.pageKey,
-                child: DiaryDetailScreen(id: id),
+                child: DiaryDetailEditScreen(id: id),
               );
             },
-            routes: [
-              GoRoute(
-                path: 'edit',
-                name: 'diary-edit',
-                pageBuilder: (context, state) {
-                  final id = state.pathParameters['id']!;
-                  return PageTransitions.slideFromBottom(
-                    key: state.pageKey,
-                    child: DiaryEditScreen(id: id),
-                  );
-                },
-              ),
-            ],
           ),
         ],
       ),
@@ -191,6 +164,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const AccountingScreen(),
         ),
+        routes: [
+          GoRoute(
+            path: 'stats',
+            name: 'accounting-stats',
+            pageBuilder: (context, state) => PageTransitions.slideFromRight(
+              key: state.pageKey,
+              child: const AccountingStatsScreen(),
+            ),
+          ),
+        ],
       ),
 
       // Goals
