@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../data/database/app_database.dart';
+import '../../../providers/goal_progress_provider.dart';
 import '../../../providers/goal_provider.dart';
 import '../../components/buttons/app_button.dart';
 import 'widgets/goal_card.dart';
 import 'widgets/goal_edit_sheet.dart';
 import 'widgets/progress_ring.dart';
 
-/// Detail screen for viewing and updating a goal.
+/// Detail screen for viewing a goal and its progress history.
 class GoalDetailScreen extends ConsumerStatefulWidget {
   /// Creates a GoalDetailScreen.
   const GoalDetailScreen({super.key, required this.id});
@@ -39,13 +39,14 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         title: const Text('目标详情'),
         actions: [
           goalAsync.whenOrNull(
-            data: (goal) => goal != null
-                ? IconButton(
-                    icon: const Icon(LucideIcons.pencil),
-                    onPressed: () => _showEditSheet(context, goal),
-                  )
-                : null,
-          ) ?? const SizedBox.shrink(),
+                data: (goal) => goal != null
+                    ? IconButton(
+                        icon: const Icon(LucideIcons.settings),
+                        onPressed: () => _showSettingsMenu(context, goal),
+                      )
+                    : null,
+              ) ??
+              const SizedBox.shrink(),
         ],
       ),
       body: goalAsync.when(
@@ -92,7 +93,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               Icon(
                 LucideIcons.alertCircle,
                 size: 48,
-                color: isDark ? AppColorsDark.destructive : AppColors.destructive,
+                color:
+                    isDark ? AppColorsDark.destructive : AppColors.destructive,
               ),
               const SizedBox(height: 16),
               Text(
@@ -123,29 +125,56 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         ? (goal.currentValue / goal.targetValue).clamp(0.0, 1.0)
         : 0.0;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Progress ring section
-          _buildProgressSection(goal, progress, category, isDark),
-          const SizedBox(height: 24),
-          // Goal info section
-          _buildInfoSection(goal, category, isDark),
-          const SizedBox(height: 24),
-          // Progress update section
-          if (!goal.completed) ...[
-            _buildUpdateProgressSection(goal, isDark),
-            const SizedBox(height: 24),
-          ],
-          // Quick actions
-          _buildQuickActions(goal, isDark),
-          const SizedBox(height: 24),
-          // Delete button
-          _buildDeleteButton(goal, isDark),
-        ],
-      ),
+    return CustomScrollView(
+      slivers: [
+        // Progress section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildProgressSection(goal, progress, category, isDark),
+          ),
+        ),
+
+        // Goal info section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildInfoSection(goal, category, isDark),
+          ),
+        ),
+
+        // Progress history header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.history,
+                  size: 18,
+                  color: isDark
+                      ? AppColorsDark.mutedForeground
+                      : AppColors.mutedForeground,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '进度历史',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColorsDark.foreground
+                        : AppColors.foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Progress history list
+        _buildProgressHistoryList(goal.id, isDark),
+      ],
     );
   }
 
@@ -173,12 +202,13 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
           // Progress ring
           ProgressRing(
             progress: progress,
-            size: 160,
-            strokeWidth: 14,
-            progressColor:
-                goal.completed ? (isDark ? AppColorsDark.accent : AppColors.accent) : category.color,
+            size: 140,
+            strokeWidth: 12,
+            progressColor: goal.completed
+                ? (isDark ? AppColorsDark.accent : AppColors.accent)
+                : category.color,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           // Title
           Text(
             goal.title,
@@ -202,7 +232,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           // Progress text
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -308,7 +338,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               icon: LucideIcons.calendarCheck,
               label: '截止日期',
               value: _formatDate(goal.endDate!),
-              valueColor: _getDeadlineColor(goal.endDate!, goal.completed, isDark),
+              valueColor:
+                  _getDeadlineColor(goal.endDate!, goal.completed, isDark),
               isDark: isDark,
             ),
           ],
@@ -338,14 +369,18 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
           icon,
           size: 20,
           color: iconColor ??
-              (isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground),
+              (isDark
+                  ? AppColorsDark.mutedForeground
+                  : AppColors.mutedForeground),
         ),
         const SizedBox(width: 12),
         Text(
           label,
           style: TextStyle(
             fontSize: 14,
-            color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+            color: isDark
+                ? AppColorsDark.mutedForeground
+                : AppColors.mutedForeground,
           ),
         ),
         const Spacer(),
@@ -362,91 +397,193 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     );
   }
 
-  Widget _buildUpdateProgressSection(Goal goal, bool isDark) {
+  Widget _buildProgressHistoryList(String goalId, bool isDark) {
+    final progressListAsync = ref.watch(goalProgressListProvider(goalId));
+
+    return progressListAsync.when(
+      data: (records) {
+        if (records.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: isDark ? AppColorsDark.card : AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? AppColorsDark.border : AppColors.border,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    LucideIcons.inbox,
+                    size: 48,
+                    color: isDark
+                        ? AppColorsDark.mutedForeground
+                        : AppColors.mutedForeground,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '暂无进度记录',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark
+                          ? AppColorsDark.mutedForeground
+                          : AppColors.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '更新进度时会自动记录',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppColorsDark.mutedForeground
+                          : AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final record = records[index];
+              return _buildProgressRecordItem(record, isDark);
+            },
+            childCount: records.length,
+          ),
+        );
+      },
+      loading: () => const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              '加载失败: $e',
+              style: TextStyle(
+                color: isDark
+                    ? AppColorsDark.mutedForeground
+                    : AppColors.mutedForeground,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressRecordItem(GoalProgressRecord record, bool isDark) {
+    final isPositive = record.change >= 0;
+    final changeColor = isPositive
+        ? (isDark ? AppColorsDark.accent : AppColors.accent)
+        : (isDark ? AppColorsDark.destructive : AppColors.destructive);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? AppColorsDark.card : AppColors.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isDark ? AppColorsDark.border : AppColors.border,
         ),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '更新进度',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+          // Change indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: changeColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${isPositive ? "+" : ""}${record.change}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: changeColor,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              // Decrement button
-              _buildProgressButton(
-                icon: LucideIcons.minus,
-                onPressed: goal.currentValue > 0
-                    ? () => _updateProgress(goal.id, goal.currentValue - 1)
-                    : null,
-                isDark: isDark,
-              ),
-              const SizedBox(width: 12),
-              // Current value display
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showSetProgressDialog(goal),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColorsDark.input : AppColors.input,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${goal.currentValue}',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppColorsDark.foreground
-                              : AppColors.foreground,
-                        ),
+          const SizedBox(width: 12),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '${record.previousValue}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark
+                            ? AppColorsDark.mutedForeground
+                            : AppColors.mutedForeground,
                       ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        LucideIcons.arrowRight,
+                        size: 14,
+                        color: isDark
+                            ? AppColorsDark.mutedForeground
+                            : AppColors.mutedForeground,
+                      ),
+                    ),
+                    Text(
+                      '${record.newValue}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppColorsDark.foreground
+                            : AppColors.foreground,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Increment button
-              _buildProgressButton(
-                icon: LucideIcons.plus,
-                onPressed: () => _updateProgress(goal.id, goal.currentValue + 1),
-                isDark: isDark,
-                isPrimary: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Quick increment buttons
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [1, 5, 10].map((amount) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: AppButton(
-                    label: '+$amount',
-                    variant: ButtonVariant.secondary,
-                    size: ButtonSize.sm,
-                    onPressed: () =>
-                        _updateProgress(goal.id, goal.currentValue + amount),
+                if (record.note != null && record.note!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    record.note!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppColorsDark.foreground
+                          : AppColors.foreground,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                );
-              }).toList(),
+                ],
+              ],
+            ),
+          ),
+          // Time
+          Text(
+            _formatRecordTime(record.createdAt),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark
+                  ? AppColorsDark.mutedForeground
+                  : AppColors.mutedForeground,
             ),
           ),
         ],
@@ -454,73 +591,128 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     );
   }
 
-  Widget _buildProgressButton({
-    required IconData icon,
-    required VoidCallback? onPressed,
-    required bool isDark,
-    bool isPrimary = false,
-  }) {
-    final bgColor = isPrimary
-        ? (isDark ? AppColorsDark.primary : AppColors.primary)
-        : (isDark ? AppColorsDark.muted : AppColors.muted);
-    final fgColor = isPrimary
-        ? (isDark ? AppColorsDark.primaryForeground : AppColors.primaryForeground)
-        : (isDark ? AppColorsDark.foreground : AppColors.foreground);
+  void _showSettingsMenu(BuildContext context, Goal goal) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: onPressed != null ? bgColor : bgColor.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(
-          icon,
-          size: 24,
-          color: onPressed != null ? fgColor : fgColor.withOpacity(0.5),
-        ),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-    );
-  }
-
-  Widget _buildQuickActions(Goal goal, bool isDark) {
-    return Column(
-      children: [
-        Row(
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: AppButton(
-                label: goal.completed ? '标记为进行中' : '标记为完成',
-                icon: goal.completed ? LucideIcons.rotateCcw : LucideIcons.check,
-                variant: goal.completed ? ButtonVariant.secondary : ButtonVariant.primary,
-                onPressed: () => _toggleComplete(goal),
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColorsDark.border : AppColors.border,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+            const SizedBox(height: 16),
+            // Bug #6: When goal is completed, only show "Clone" and "Delete"
+            // Hide "Edit" and "Complete/Uncomplete" for completed goals
+            if (!goal.completed) ...[
+              // Edit goal - only show for incomplete goals
+              ListTile(
+                leading: Icon(
+                  LucideIcons.pencil,
+                  color:
+                      isDark ? AppColorsDark.foreground : AppColors.foreground,
+                ),
+                title: Text(
+                  '编辑目标',
+                  style: TextStyle(
+                    color:
+                        isDark ? AppColorsDark.foreground : AppColors.foreground,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditSheet(context, goal);
+                },
+              ),
+              // Complete goal - only show for incomplete goals
+              ListTile(
+                leading: Icon(
+                  LucideIcons.check,
+                  color:
+                      isDark ? AppColorsDark.foreground : AppColors.foreground,
+                ),
+                title: Text(
+                  '完成目标',
+                  style: TextStyle(
+                    color:
+                        isDark ? AppColorsDark.foreground : AppColors.foreground,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleComplete(goal);
+                },
+              ),
+            ],
+            // Clone goal - only show for completed goals
+            if (goal.completed)
+              ListTile(
+                leading: Icon(
+                  LucideIcons.copy,
+                  color:
+                      isDark ? AppColorsDark.foreground : AppColors.foreground,
+                ),
+                title: Text(
+                  '克隆目标',
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColorsDark.foreground
+                        : AppColors.foreground,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _cloneGoal(goal);
+                },
+              ),
+            const Divider(),
+            // Delete goal - always show
+            ListTile(
+              leading: Icon(
+                LucideIcons.trash2,
+                color:
+                    isDark ? AppColorsDark.destructive : AppColors.destructive,
+              ),
+              title: Text(
+                '删除目标',
+                style: TextStyle(
+                  color:
+                      isDark ? AppColorsDark.destructive : AppColors.destructive,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(goal);
+              },
+            ),
+            const SizedBox(height: 16),
           ],
         ),
-        // Bug 12: Clone goal button (only for completed goals)
-        if (goal.completed) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AppButton(
-                  label: '克隆目标重新开始',
-                  icon: LucideIcons.copy,
-                  variant: ButtonVariant.secondary,
-                  onPressed: () => _cloneGoal(goal),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
+      ),
     );
   }
 
-  // Bug 12: Clone goal functionality
+  void _toggleComplete(Goal goal) {
+    final newValue = goal.completed ? goal.currentValue : goal.targetValue;
+    ref.read(goalListProvider().notifier).updateProgress(
+          goal.id,
+          newValue,
+          note: goal.completed ? '取消完成' : '完成目标',
+        );
+  }
+
   void _cloneGoal(Goal goal) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -571,7 +763,6 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     );
 
     if (confirmed == true && mounted) {
-      // Create new goal based on the current one
       await ref.read(goalListProvider().notifier).add(
             title: goal.title,
             description: goal.description,
@@ -590,85 +781,9 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('目标已克隆')),
         );
-        // Navigate back to list
         context.pop();
       }
     }
-  }
-
-  Widget _buildDeleteButton(Goal goal, bool isDark) {
-    return AppButton(
-      label: '删除目标',
-      icon: LucideIcons.trash2,
-      variant: ButtonVariant.destructive,
-      fullWidth: true,
-      onPressed: () => _confirmDelete(goal),
-    );
-  }
-
-  void _updateProgress(String id, int newValue) {
-    if (newValue < 0) return;
-    ref.read(goalListProvider().notifier).updateProgress(id, newValue);
-  }
-
-  void _toggleComplete(Goal goal) {
-    final newValue = goal.completed ? goal.currentValue : goal.targetValue;
-    _updateProgress(goal.id, newValue);
-  }
-
-  void _showSetProgressDialog(Goal goal) {
-    final controller =
-        TextEditingController(text: goal.currentValue.toString());
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
-        title: Text(
-          '设置进度',
-          style: TextStyle(
-            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '输入当前进度',
-            suffixText: '/ ${goal.targetValue}',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              '取消',
-              style: TextStyle(
-                color: isDark
-                    ? AppColorsDark.mutedForeground
-                    : AppColors.mutedForeground,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text) ?? 0;
-              _updateProgress(goal.id, value);
-              Navigator.pop(context);
-            },
-            child: Text(
-              '确定',
-              style: TextStyle(
-                color: isDark ? AppColorsDark.primary : AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _confirmDelete(Goal goal) async {
@@ -706,7 +821,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
             child: Text(
               '删除',
               style: TextStyle(
-                color: isDark ? AppColorsDark.destructive : AppColors.destructive,
+                color:
+                    isDark ? AppColorsDark.destructive : AppColors.destructive,
               ),
             ),
           ),
@@ -754,6 +870,25 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
 
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}/${dateTime.month}/${dateTime.day} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatRecordTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    final time =
+        '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+
+    if (dateDay == today) {
+      return '今天 $time';
+    } else if (dateDay == today.subtract(const Duration(days: 1))) {
+      return '昨天 $time';
+    } else if (dateTime.year == now.year) {
+      return '${dateTime.month}/${dateTime.day} $time';
+    } else {
+      return '${dateTime.year}/${dateTime.month}/${dateTime.day}';
+    }
   }
 
   Color _getDeadlineColor(DateTime endDate, bool completed, bool isDark) {

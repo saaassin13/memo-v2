@@ -84,13 +84,6 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToNewDiary(),
-        backgroundColor: isDark ? AppColorsDark.primary : AppColors.primary,
-        foregroundColor:
-            isDark ? AppColorsDark.primaryForeground : AppColors.primaryForeground,
-        child: const Icon(LucideIcons.plus),
-      ),
     );
   }
 
@@ -166,6 +159,9 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
             setState(() {
               _selectedDate = date;
             });
+            // Bug #5: Check if the selected date has a diary entry
+            // If yes, navigate to edit; if no, navigate to new diary with that date
+            _handleDateSelected(date, datesWithEntries);
           },
           onMonthChanged: (month) {
             setState(() {
@@ -351,6 +347,24 @@ class _DiaryListScreenState extends ConsumerState<DiaryListScreen> {
       context.push('${Routes.diaryNew}?date=${date.toIso8601String()}');
     } else {
       context.push(Routes.diaryNew);
+    }
+  }
+
+  /// Bug #5: Handle date selection - navigate to existing diary or create new one
+  void _handleDateSelected(DateTime date, List<DateTime> datesWithEntries) {
+    // Check if this date has an existing diary
+    final hasEntry = datesWithEntries.any((d) => _isSameDay(d, date));
+
+    if (hasEntry) {
+      // Navigate to the existing diary for this date
+      ref.read(diaryByDateProvider(date).future).then((diary) {
+        if (diary != null && mounted) {
+          context.push(Routes.diaryDetail(diary.id));
+        }
+      });
+    } else {
+      // Navigate to create a new diary with this date
+      _navigateToNewDiary(date: date);
     }
   }
 

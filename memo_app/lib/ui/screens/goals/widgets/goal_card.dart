@@ -36,7 +36,7 @@ class GoalCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onDelete,
-    this.onQuickProgress,
+    this.onProgressUpdate,
   });
 
   /// The goal data to display.
@@ -51,8 +51,9 @@ class GoalCard extends StatelessWidget {
   /// Called when delete action is triggered.
   final VoidCallback? onDelete;
 
-  /// Called when quick progress button is pressed (Bug 10).
-  final void Function(int newValue)? onQuickProgress;
+  /// Called when progress update button is pressed.
+  /// Opens the progress update sheet.
+  final VoidCallback? onProgressUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -159,19 +160,20 @@ class GoalCard extends StatelessWidget {
               // Progress bar
               _buildProgressBar(progress, category, isDark),
               const SizedBox(height: 8),
-              // Progress text and deadline
+              // Progress text, deadline, and update button
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildProgressText(isDark),
-                  if (goal.endDate != null) _buildDeadline(isDark),
+                  if (goal.endDate != null) ...[
+                    const SizedBox(width: 12),
+                    _buildDeadline(isDark),
+                  ],
+                  const Spacer(),
+                  // Progress update button (only for incomplete goals)
+                  if (!isCompleted && onProgressUpdate != null)
+                    _buildProgressUpdateButton(isDark),
                 ],
               ),
-              // Bug 10: Quick progress buttons
-              if (!isCompleted && onQuickProgress != null) ...[
-                const SizedBox(height: 12),
-                _buildQuickProgressButtons(isDark),
-              ],
             ],
           ),
         ),
@@ -242,7 +244,8 @@ class GoalCard extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressBar(double progress, GoalCategory category, bool isDark) {
+  Widget _buildProgressBar(
+      double progress, GoalCategory category, bool isDark) {
     return Container(
       height: 8,
       decoration: BoxDecoration(
@@ -280,7 +283,8 @@ class GoalCard extends StatelessWidget {
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w500,
-        color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+        color:
+            isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
       ),
     );
   }
@@ -334,95 +338,37 @@ class GoalCard extends StatelessWidget {
     );
   }
 
-  /// Bug 10: Build quick progress buttons for the list view
-  Widget _buildQuickProgressButtons(bool isDark) {
-    return Row(
-      children: [
-        _buildQuickButton(
-          icon: LucideIcons.minus,
-          onTap: goal.currentValue > 0
-              ? () => onQuickProgress?.call(goal.currentValue - 1)
-              : null,
-          isDark: isDark,
-        ),
-        const SizedBox(width: 8),
-        _buildQuickButton(
-          label: '+1',
-          onTap: () => onQuickProgress?.call(goal.currentValue + 1),
-          isDark: isDark,
-          isPrimary: true,
-        ),
-        const SizedBox(width: 8),
-        _buildQuickButton(
-          label: '+5',
-          onTap: () => onQuickProgress?.call(goal.currentValue + 5),
-          isDark: isDark,
-        ),
-        const Spacer(),
-        _buildQuickButton(
-          icon: LucideIcons.check,
-          label: '完成',
-          onTap: () => onQuickProgress?.call(goal.targetValue),
-          isDark: isDark,
-          isAccent: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickButton({
-    IconData? icon,
-    String? label,
-    VoidCallback? onTap,
-    required bool isDark,
-    bool isPrimary = false,
-    bool isAccent = false,
-  }) {
-    Color bgColor;
-    Color fgColor;
-
-    if (isAccent) {
-      bgColor = (isDark ? AppColorsDark.accent : AppColors.accent)
-          .withOpacity(isDark ? 0.2 : 0.1);
-      fgColor = isDark ? AppColorsDark.accent : AppColors.accent;
-    } else if (isPrimary) {
-      bgColor = (isDark ? AppColorsDark.primary : AppColors.primary);
-      fgColor = isDark ? AppColorsDark.primaryForeground : AppColors.primaryForeground;
-    } else {
-      bgColor = isDark ? AppColorsDark.muted : AppColors.muted;
-      fgColor = isDark ? AppColorsDark.foreground : AppColors.foreground;
-    }
-
+  /// Build progress update button
+  Widget _buildProgressUpdateButton(bool isDark) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onProgressUpdate,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: label != null ? 12 : 8,
-          vertical: 6,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: onTap != null ? bgColor : bgColor.withOpacity(0.5),
+          color: isDark ? AppColorsDark.primary : AppColors.primary,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null)
-              Icon(
-                icon,
-                size: 14,
-                color: onTap != null ? fgColor : fgColor.withOpacity(0.5),
+            Icon(
+              LucideIcons.trendingUp,
+              size: 14,
+              color: isDark
+                  ? AppColorsDark.primaryForeground
+                  : AppColors.primaryForeground,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '更新',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? AppColorsDark.primaryForeground
+                    : AppColors.primaryForeground,
               ),
-            if (icon != null && label != null) const SizedBox(width: 4),
-            if (label != null)
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: onTap != null ? fgColor : fgColor.withOpacity(0.5),
-                ),
-              ),
+            ),
           ],
         ),
       ),
@@ -464,8 +410,9 @@ class GoalCard extends StatelessWidget {
                 child: Text(
                   '删除',
                   style: TextStyle(
-                    color:
-                        isDark ? AppColorsDark.destructive : AppColors.destructive,
+                    color: isDark
+                        ? AppColorsDark.destructive
+                        : AppColors.destructive,
                   ),
                 ),
               ),

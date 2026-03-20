@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../data/database/app_database.dart';
 import '../data/repositories/goal_repository.dart';
 import 'database_provider.dart';
+import 'goal_progress_provider.dart';
 
 part 'goal_provider.g.dart';
 
@@ -66,22 +67,36 @@ class GoalList extends _$GoalList {
   }
 
   /// 更新进度
-  Future<void> updateProgress(String id, int newValue) async {
+  Future<void> updateProgress(String id, int newValue, {String? note}) async {
     final repo = ref.read(goalRepositoryProvider);
-    await repo.updateProgress(id, newValue);
+    final previousValue = await repo.updateProgress(id, newValue);
+
+    // Record progress change
+    await ref.read(goalProgressListProvider(id).notifier).add(
+          goalId: id,
+          previousValue: previousValue,
+          newValue: newValue,
+          note: note,
+        );
+
     ref.invalidateSelf();
   }
 
   /// 增加进度
-  Future<void> incrementProgress(String id, {int amount = 1}) async {
+  Future<void> incrementProgress(String id, {int amount = 1, String? note}) async {
     final repo = ref.read(goalRepositoryProvider);
-    await repo.incrementProgress(id, amount: amount);
-    ref.invalidateSelf();
+    final goal = await repo.getById(id);
+    if (goal == null) return;
+
+    final newValue = goal.currentValue + amount;
+    await updateProgress(id, newValue, note: note);
   }
 
   /// 删除目标
   Future<void> delete(String id) async {
     final repo = ref.read(goalRepositoryProvider);
+    // Delete progress records first
+    await ref.read(goalProgressListProvider(id).notifier).deleteAllForGoal(id);
     await repo.delete(id);
     ref.invalidateSelf();
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/utils/delta_utils.dart';
 import '../badges/app_badge.dart';
 import '../dialogs/app_dropdown_menu.dart';
 
@@ -112,9 +113,9 @@ class MemoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // Content preview
+            // Content preview - extract plain text from Delta JSON
             Text(
-              content,
+              DeltaUtils.extractPlainText(content),
               style: TextStyle(
                 fontSize: 14,
                 color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
@@ -199,10 +200,10 @@ class MemoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // Content preview - takes more space in grid
+            // Content preview - takes more space in grid, extract plain text from Delta JSON
             Expanded(
               child: Text(
-                content,
+                DeltaUtils.extractPlainText(content),
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,

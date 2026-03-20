@@ -78,11 +78,12 @@ class GoalRepository {
     );
   }
 
-  /// 更新进度
-  Future<void> updateProgress(String id, int newValue) async {
+  /// 更新进度，返回更新前的值
+  Future<int> updateProgress(String id, int newValue) async {
     final goal =
         await (_db.select(_db.goals)..where((g) => g.id.equals(id))).getSingle();
 
+    final previousValue = goal.currentValue;
     final isCompleted = newValue >= goal.targetValue;
 
     await (_db.update(_db.goals)..where((g) => g.id.equals(id))).write(
@@ -92,6 +93,8 @@ class GoalRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+
+    return previousValue;
   }
 
   /// 增加进度

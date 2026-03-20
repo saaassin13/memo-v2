@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../core/theme/colors.dart';
+import '../../../../core/utils/delta_utils.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../components/dialogs/app_dropdown_menu.dart';
 import 'weather_selector.dart';
@@ -71,23 +72,12 @@ class DiaryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                // Mood emoji
-                if (mood != null) ...[
+                // Mood emoji only (no label text per Bug #4)
+                if (mood != null)
                   Text(
                     mood.emoji,
                     style: const TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    mood.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark
-                          ? AppColorsDark.mutedForeground
-                          : AppColors.mutedForeground,
-                    ),
-                  ),
-                ],
                 const Spacer(),
                 // Date
                 if (showDate)
@@ -122,9 +112,9 @@ class DiaryCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
-            // Content preview
+            // Content preview - extract plain text from Delta JSON
             Text(
-              diary.content,
+              DeltaUtils.extractPlainText(diary.content),
               style: TextStyle(
                 fontSize: 14,
                 color: isDark

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,12 +77,22 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
         _weather = Weather.fromValue(diary.weather) ?? Weather.sunny;
         _mood = Mood.fromValue(diary.mood) ?? Mood.happy;
         _isInitialized = true;
-        // Convert plain text to Quill document
+        // Load content from Delta JSON format or plain text
         if (diary.content.isNotEmpty) {
-          _quillController = QuillController(
-            document: Document()..insert(0, diary.content),
-            selection: const TextSelection.collapsed(offset: 0),
-          );
+          try {
+            // Try to parse as Delta JSON
+            final deltaJson = jsonDecode(diary.content) as List;
+            _quillController = QuillController(
+              document: Document.fromJson(deltaJson),
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+          } catch (_) {
+            // Fallback to plain text if not valid JSON
+            _quillController = QuillController(
+              document: Document()..insert(0, diary.content),
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+          }
         }
       });
     } else if (mounted) {
@@ -90,6 +102,12 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
     }
   }
 
+  /// Get content as Delta JSON for preserving format
+  String get _deltaJsonContent {
+    return jsonEncode(_quillController.document.toDelta().toJson());
+  }
+
+  /// Get plain text content for display/preview
   String get _plainTextContent {
     return _quillController.document.toPlainText().trim();
   }
@@ -311,21 +329,14 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
             const SizedBox(height: 16),
           ],
 
-          // Content
+          // Content - render as Quill document for rich text display
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark ? AppColorsDark.card : AppColors.card,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              diary.content,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.8,
-                color: isDark ? AppColorsDark.foreground : AppColors.foreground,
-              ),
-            ),
+            child: _buildContentDisplay(diary.content, isDark),
           ),
           const SizedBox(height: 24),
 
@@ -564,65 +575,53 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
     );
   }
 
+  /// Build content display widget that renders rich text from Delta JSON
+  Widget _buildContentDisplay(String content, bool isDark) {
+    try {
+      final deltaJson = jsonDecode(content) as List;
+      final document = Document.fromJson(deltaJson);
+      final controller = QuillController(
+        document: document,
+        selection: const TextSelection.collapsed(offset: 0),
+        readOnly: true,
+      );
+      return QuillEditor.basic(
+        controller: controller,
+        config: QuillEditorConfig(
+          padding: EdgeInsets.zero,
+          expands: false,
+          scrollable: false,
+          showCursor: false,
+        ),
+      );
+    } catch (_) {
+      // Fallback to plain text if not valid JSON
+      return Text(
+        content,
+        style: TextStyle(
+          fontSize: 15,
+          height: 1.8,
+          color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+        ),
+      );
+    }
+  }
+
   Widget _buildEditMode(bool isDark) {
     return Column(
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+        // Header section (non-scrollable)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date display with clickable weather and mood
+              // Date display with clickable weather and mood icons
+              // (No separate weather/mood selectors - click icons to change)
               _buildDateHeaderWithIcons(isDark, _date, _weather, _mood),
-              const SizedBox(height: 24),
-
-              // Weather selector
-              Text(
-                '天气',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColorsDark.mutedForeground
-                      : AppColors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 8),
-              WeatherSelector(
-                selected: _weather,
-                onChanged: (w) => setState(() => _weather = w),
-              ),
-              const SizedBox(height: 24),
-
-              // Mood selector
-              Text(
-                '心情',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColorsDark.mutedForeground
-                      : AppColors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 8),
-              MoodSelector(
-                selected: _mood,
-                onChanged: (m) => setState(() => _mood = m),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Title input (optional)
-              Text(
-                '标题（可选）',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColorsDark.mutedForeground
-                      : AppColors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppColorsDark.input : AppColors.input,
@@ -631,7 +630,8 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
                 child: TextField(
                   controller: _titleController,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                     color:
                         isDark ? AppColorsDark.foreground : AppColors.foreground,
                   ),
@@ -643,81 +643,74 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
                           : AppColors.mutedForeground,
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
+                    contentPadding: const EdgeInsets.all(12),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Content with Quill editor
-              Text(
-                '内容',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColorsDark.mutedForeground
-                      : AppColors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColorsDark.input : AppColors.input,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    // Toolbar
-                    QuillSimpleToolbar(
-                      controller: _quillController,
-                      config: QuillSimpleToolbarConfig(
-                        showBoldButton: true,
-                        showItalicButton: true,
-                        showUnderLineButton: true,
-                        showStrikeThrough: false,
-                        showListBullets: true,
-                        showListNumbers: true,
-                        showCodeBlock: false,
-                        showQuote: true,
-                        showLink: false,
-                        showBackgroundColorButton: false,
-                        showColorButton: false,
-                        showFontFamily: false,
-                        showFontSize: false,
-                        showHeaderStyle: true,
-                        showClearFormat: true,
-                        showAlignmentButtons: false,
-                        showInlineCode: false,
-                        showUndo: true,
-                        showRedo: true,
-                        multiRowsDisplay: false,
-                      ),
-                    ),
-                    Divider(
-                      color: isDark ? AppColorsDark.border : AppColors.border,
-                      height: 1,
-                    ),
-                    // Editor
-                    Container(
-                      constraints: const BoxConstraints(minHeight: 200),
-                      padding: const EdgeInsets.all(16),
-                      child: QuillEditor.basic(
-                        controller: _quillController,
-                        focusNode: _contentFocusNode,
-                        config: QuillEditorConfig(
-                          placeholder: '今天发生了什么...',
-                          padding: EdgeInsets.zero,
-                          expands: false,
-                          scrollable: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
             ],
+          ),
+        ),
+
+        // Quill editor (fullscreen, takes remaining space)
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColorsDark.input : AppColors.input,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                // Toolbar
+                QuillSimpleToolbar(
+                  controller: _quillController,
+                  config: QuillSimpleToolbarConfig(
+                    showBoldButton: true,
+                    showItalicButton: true,
+                    showUnderLineButton: true,
+                    showStrikeThrough: false,
+                    showListBullets: true,
+                    showListNumbers: true,
+                    showCodeBlock: false,
+                    showQuote: true,
+                    showLink: false,
+                    showBackgroundColorButton: false,
+                    showColorButton: false,
+                    showFontFamily: false,
+                    showFontSize: false,
+                    showHeaderStyle: true,
+                    showClearFormat: true,
+                    showAlignmentButtons: false,
+                    showInlineCode: false,
+                    showUndo: true,
+                    showRedo: true,
+                    multiRowsDisplay: false,
+                  ),
+                ),
+                Divider(
+                  color: isDark ? AppColorsDark.border : AppColors.border,
+                  height: 1,
+                ),
+                // Editor (expanded to fill remaining space)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: QuillEditor.basic(
+                      controller: _quillController,
+                      focusNode: _contentFocusNode,
+                      config: QuillEditorConfig(
+                        placeholder: '今天发生了什么...',
+                        padding: EdgeInsets.zero,
+                        expands: true,
+                        scrollable: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -803,7 +796,8 @@ class _DiaryDetailEditScreenState extends ConsumerState<DiaryDetailEditScreen> {
 
     try {
       final title = _titleController.text.trim();
-      final content = _plainTextContent;
+      // Save content as Delta JSON to preserve formatting
+      final content = _deltaJsonContent;
 
       if (widget.id != null && _existingDiary != null) {
         // Update existing diary

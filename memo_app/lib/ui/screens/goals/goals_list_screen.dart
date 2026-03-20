@@ -11,6 +11,7 @@ import '../../components/feedback/empty_state.dart';
 import '../todo/widgets/category_filter.dart';
 import 'widgets/goal_card.dart';
 import 'widgets/goal_edit_sheet.dart';
+import 'widgets/progress_update_sheet.dart';
 
 /// The main Goals screen displaying goal list with category filter.
 class GoalsListScreen extends ConsumerStatefulWidget {
@@ -161,8 +162,8 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen> {
                   goal: goal,
                   onTap: () => _navigateToDetail(goal.id),
                   onDelete: () => _deleteGoal(goal.id),
-                  // Bug 10: Quick progress from list
-                  onQuickProgress: (newValue) => _updateProgress(goal.id, newValue),
+                  // Progress update button opens sheet
+                  onProgressUpdate: () => _showProgressUpdateSheet(goal),
                 ),
               )),
         ],
@@ -257,9 +258,28 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen> {
     ref.read(goalListProvider().notifier).delete(id);
   }
 
-  // Bug 10: Update progress from list
-  void _updateProgress(String id, int newValue) {
-    ref.read(goalListProvider().notifier).updateProgress(id, newValue);
+  /// Show progress update sheet with +/- controls and note input
+  void _showProgressUpdateSheet(Goal goal) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => ProgressUpdateSheet(
+        goal: goal,
+        onUpdate: (newValue, note) {
+          ref.read(goalListProvider().notifier).updateProgress(
+                goal.id,
+                newValue,
+                note: note,
+              );
+        },
+      ),
+    );
   }
 
   void _showEditSheet(BuildContext context, {Goal? goal}) {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,12 +73,22 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
         _titleController.text = memo.title;
         _category = memo.category;
         _isInitialized = true;
-        // Convert plain text to Quill document
+        // Load content from Delta JSON format or plain text
         if (memo.content.isNotEmpty) {
-          _quillController = QuillController(
-            document: Document()..insert(0, memo.content),
-            selection: const TextSelection.collapsed(offset: 0),
-          );
+          try {
+            // Try to parse as Delta JSON
+            final deltaJson = jsonDecode(memo.content) as List;
+            _quillController = QuillController(
+              document: Document.fromJson(deltaJson),
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+          } catch (_) {
+            // Fallback to plain text if not valid JSON
+            _quillController = QuillController(
+              document: Document()..insert(0, memo.content),
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+          }
         }
       });
     } else if (mounted) {
@@ -86,6 +98,12 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
     }
   }
 
+  /// Get content as Delta JSON for preserving format
+  String get _deltaJsonContent {
+    return jsonEncode(_quillController.document.toDelta().toJson());
+  }
+
+  /// Get plain text content for display/preview
   String get _plainTextContent {
     return _quillController.document.toPlainText().trim();
   }
@@ -97,7 +115,7 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
     } else {
       return _existingMemo != null &&
           (_titleController.text != _existingMemo!.title ||
-              _plainTextContent != _existingMemo!.content ||
+              _deltaJsonContent != _existingMemo!.content ||
               _category != _existingMemo!.category);
     }
   }
@@ -264,7 +282,8 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
     return GestureDetector(
       onTap: _enterEditMode,
       behavior: HitTestBehavior.opaque,
-      child: SingleChildScrollView(
+      child: SizedBox.expand(
+        child: SingleChildScrollView(
         controller: _scrollController,
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -411,7 +430,7 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Content
+            // Content - render as Quill document for rich text display
             if (memo.content.isEmpty)
               Text(
                 '暂无内容',
@@ -424,150 +443,168 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
                 ),
               )
             else
-              Text(
-                memo.content,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.7,
-                  color:
-                      isDark ? AppColorsDark.foreground : AppColors.foreground,
-                ),
-              ),
+              _buildContentDisplay(memo.content, isDark),
           ],
         ),
       ),
+      ),
     );
+  }
+
+  /// Build content display widget that renders rich text from Delta JSON
+  Widget _buildContentDisplay(String content, bool isDark) {
+    try {
+      final deltaJson = jsonDecode(content) as List;
+      final document = Document.fromJson(deltaJson);
+      final controller = QuillController(
+        document: document,
+        selection: const TextSelection.collapsed(offset: 0),
+        readOnly: true,
+      );
+      // Wrap in IgnorePointer so clicks pass through to GestureDetector for edit mode
+      return IgnorePointer(
+        child: QuillEditor.basic(
+          controller: controller,
+          config: QuillEditorConfig(
+            padding: EdgeInsets.zero,
+            expands: false,
+            scrollable: false,
+            showCursor: false,
+          ),
+        ),
+      );
+    } catch (_) {
+      // Fallback to plain text if not valid JSON
+      return Text(
+        content,
+        style: TextStyle(
+          fontSize: 16,
+          height: 1.7,
+          color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+        ),
+      );
+    }
   }
 
   Widget _buildEditMode(bool isDark) {
     return Column(
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title input
-                TextField(
-                  controller: _titleController,
-                  focusNode: _titleFocusNode,
-                  autofocus: widget.id == null,
-                  style: TextStyle(
+        // Header section (non-scrollable)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title input
+              TextField(
+                controller: _titleController,
+                focusNode: _titleFocusNode,
+                autofocus: widget.id == null,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      isDark ? AppColorsDark.foreground : AppColors.foreground,
+                ),
+                decoration: InputDecoration(
+                  hintText: '标题',
+                  hintStyle: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
-                    color:
-                        isDark ? AppColorsDark.foreground : AppColors.foreground,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '标题',
-                    hintStyle: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? AppColorsDark.mutedForeground
-                          : AppColors.mutedForeground,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
-
-                // Category selector
-                Text(
-                  '分类',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColorsDark.mutedForeground
                         : AppColors.mutedForeground,
                   ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: _categories
-                      .map((cat) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: CategoryChip(
-                              label: cat,
-                              selected: _category == cat,
-                              onTap: () => setState(() => _category = cat),
-                            ),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: 24),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 16),
 
-                // Content label
-                Text(
-                  '内容',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: isDark
-                        ? AppColorsDark.mutedForeground
-                        : AppColors.mutedForeground,
-                  ),
+              // Category selector
+              Text(
+                '分类',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? AppColorsDark.mutedForeground
+                      : AppColors.mutedForeground,
                 ),
-                const SizedBox(height: 8),
-
-                // Quill editor
-                Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColorsDark.input : AppColors.input,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      // Toolbar
-                      QuillSimpleToolbar(
-                        controller: _quillController,
-                        config: QuillSimpleToolbarConfig(
-                          showBoldButton: true,
-                          showItalicButton: true,
-                          showUnderLineButton: true,
-                          showStrikeThrough: false,
-                          showListBullets: true,
-                          showListNumbers: true,
-                          showCodeBlock: true,
-                          showQuote: true,
-                          showLink: false,
-                          showBackgroundColorButton: false,
-                          showColorButton: false,
-                          showFontFamily: false,
-                          showFontSize: false,
-                          showHeaderStyle: true,
-                          showClearFormat: true,
-                          showAlignmentButtons: false,
-                          showInlineCode: true,
-                          showUndo: true,
-                          showRedo: true,
-                          multiRowsDisplay: false,
-                        ),
-                      ),
-                      Divider(
-                        color: isDark ? AppColorsDark.border : AppColors.border,
-                        height: 1,
-                      ),
-                      // Editor
-                      Container(
-                        constraints: const BoxConstraints(minHeight: 200),
-                        padding: const EdgeInsets.all(16),
-                        child: QuillEditor.basic(
-                          controller: _quillController,
-                          focusNode: _contentFocusNode,
-                          config: QuillEditorConfig(
-                            placeholder: '记录你的想法...',
-                            padding: EdgeInsets.zero,
-                            expands: false,
-                            scrollable: true,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: _categories
+                    .map((cat) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: CategoryChip(
+                            label: cat,
+                            selected: _category == cat,
+                            onTap: () => setState(() => _category = cat),
                           ),
-                        ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+
+        // Quill editor (fullscreen, takes remaining space)
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColorsDark.input : AppColors.input,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                // Toolbar
+                QuillSimpleToolbar(
+                  controller: _quillController,
+                  config: QuillSimpleToolbarConfig(
+                    showBoldButton: true,
+                    showItalicButton: true,
+                    showUnderLineButton: true,
+                    showStrikeThrough: false,
+                    showListBullets: true,
+                    showListNumbers: true,
+                    showCodeBlock: true,
+                    showQuote: true,
+                    showLink: false,
+                    showBackgroundColorButton: false,
+                    showColorButton: false,
+                    showFontFamily: false,
+                    showFontSize: false,
+                    showHeaderStyle: true,
+                    showClearFormat: true,
+                    showAlignmentButtons: false,
+                    showInlineCode: true,
+                    showUndo: true,
+                    showRedo: true,
+                    multiRowsDisplay: false,
+                  ),
+                ),
+                Divider(
+                  color: isDark ? AppColorsDark.border : AppColors.border,
+                  height: 1,
+                ),
+                // Editor (expanded to fill remaining space)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: QuillEditor.basic(
+                      controller: _quillController,
+                      focusNode: _contentFocusNode,
+                      config: QuillEditorConfig(
+                        placeholder: '记录你的想法...',
+                        padding: EdgeInsets.zero,
+                        expands: true,
+                        scrollable: true,
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -636,7 +673,8 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
 
     try {
       final title = _titleController.text.trim();
-      final content = _plainTextContent;
+      // Save content as Delta JSON to preserve formatting
+      final content = _deltaJsonContent;
 
       if (widget.id != null && _existingMemo != null) {
         // Update existing memo
@@ -690,12 +728,23 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
     }
   }
 
-  void _togglePin() {
+  Future<void> _togglePin() async {
     if (_existingMemo != null) {
-      ref.read(memoListProvider().notifier).togglePin(_existingMemo!.id);
-      // Refresh
+      // Optimistic UI update: toggle icon immediately
+      setState(() {
+        _existingMemo = Memo(
+          id: _existingMemo!.id,
+          title: _existingMemo!.title,
+          content: _existingMemo!.content,
+          category: _existingMemo!.category,
+          pinned: !_existingMemo!.pinned,
+          createdAt: _existingMemo!.createdAt,
+          updatedAt: _existingMemo!.updatedAt,
+        );
+      });
+      await ref.read(memoListProvider().notifier).togglePin(_existingMemo!.id);
       ref.invalidate(memoByIdProvider(widget.id!));
-      _loadMemo();
+      await _loadMemo();
     }
   }
 
