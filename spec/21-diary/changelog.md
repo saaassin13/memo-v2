@@ -1,5 +1,20 @@
 # 21-diary 变更记录
 
+## [1.1.0] - 2026-03-20
+
+### 修改
+- DiaryListScreen: 点击日历日期不再跳转页面，改为在下方展示该日期的日记。选中日期无日记时显示「新建日记」按钮。
+- DiaryListScreen: 移除「历史日记」列表区域。
+- DiaryListScreen: 右上角按钮从「写日记」改为「管理日记」，点击进入 DiaryManagementScreen。
+- DiaryRepository: 新增 `getByWeek` 和 `getCount` 方法。
+- diary_provider: 新增 `diariesByWeekProvider` 和 `diaryCountProvider`。
+
+### 新增
+- DiaryManagementScreen: 日记管理页面，支持周/月视图切换，显示日记总数，可查看对应时间段内的所有日记列表，点击进入详情。
+
+### 路由变更
+- 新增路由 `/apps/diary/management` (diaryManagement)
+
 ## [1.0.0] - 2026-03-19
 
 ### 新增
