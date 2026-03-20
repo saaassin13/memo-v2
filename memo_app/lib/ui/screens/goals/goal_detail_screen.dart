@@ -711,6 +711,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
           newValue,
           note: goal.completed ? '取消完成' : '完成目标',
         );
+    ref.invalidate(goalByIdProvider(widget.id));
   }
 
   void _cloneGoal(Goal goal) async {
@@ -859,6 +860,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
             updatedAt: DateTime.now(),
           );
           ref.read(goalListProvider().notifier).updateGoal(updatedGoal);
+          ref.invalidate(goalByIdProvider(widget.id));
         },
       ),
     );
