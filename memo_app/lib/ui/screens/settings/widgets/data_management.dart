@@ -57,7 +57,6 @@ class DataManagement extends ConsumerWidget {
       ],
     );
   }
-// PLACEHOLDER_METHODS
 
   /// 处理数据备份
   Future<void> _handleBackup(BuildContext context, WidgetRef ref) async {
@@ -161,7 +160,6 @@ class DataManagement extends ConsumerWidget {
       }
     }
   }
-// PLACEHOLDER_HELPERS
 
   Future<Map<String, dynamic>> _exportData(AppDatabase db) async {
     final todos = await db.select(db.todos).get();
@@ -226,7 +224,6 @@ class DataManagement extends ConsumerWidget {
       }).toList(),
     };
   }
-// PLACEHOLDER_IMPORT
 
   Future<void> _importData(AppDatabase db, Map<String, dynamic> data) async {
     await _clearAllData(db);
@@ -359,11 +356,11 @@ class DataManagement extends ConsumerWidget {
     await db.delete(db.memos).go();
     await db.delete(db.diaryEntries).go();
     await db.delete(db.transactions).go();
+    await db.delete(db.goalProgressRecords).go();
     await db.delete(db.goals).go();
     await db.delete(db.weightRecords).go();
     await db.delete(db.countdowns).go();
   }
-// PLACEHOLDER_DIALOGS
 
   void _showLoadingDialog(BuildContext context, String message) {
     showDialog(
