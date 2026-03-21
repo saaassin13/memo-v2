@@ -16,6 +16,7 @@ class CountdownData {
     required this.targetDate,
     required this.type,
     required this.repeatYearly,
+    this.remind = false,
   });
 
   /// The countdown title.
@@ -29,6 +30,9 @@ class CountdownData {
 
   /// Whether to repeat yearly.
   final bool repeatYearly;
+
+  /// Whether to enable reminder notification.
+  final bool remind;
 }
 
 /// A bottom sheet for creating or editing a countdown.
@@ -56,6 +60,7 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
   CountdownCategory _category = CountdownCategory.important;
   bool _repeatYearly = false;
   bool _isLunarCalendar = false;
+  bool _remind = false;
 
   @override
   void initState() {
@@ -65,6 +70,7 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
       _targetDate = widget.countdown!.targetDate;
       _category = CountdownCategory.fromString(widget.countdown!.type);
       _repeatYearly = widget.countdown!.repeatYearly;
+      _remind = widget.countdown!.remind;
     }
   }
 
@@ -129,6 +135,7 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
       targetDate: _targetDate,
       type: _category.value,
       repeatYearly: _repeatYearly,
+      remind: _remind,
     );
     widget.onSave(data);
     Navigator.pop(context);
@@ -155,9 +162,10 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
           top: 16,
           bottom: bottomPadding + 16,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Drag handle
             Center(
@@ -209,6 +217,9 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
             const SizedBox(height: 16),
             // Repeat yearly toggle
             _buildRepeatToggle(isDark),
+            const SizedBox(height: 16),
+            // Reminder toggle
+            _buildReminderToggle(isDark),
             const SizedBox(height: 20),
             // Save button
             AppButton(
@@ -217,6 +228,7 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
               fullWidth: true,
             ),
           ],
+        ),
         ),
       ),
     );
@@ -401,6 +413,63 @@ class _CountdownEditSheetState extends State<CountdownEditSheet> {
               onChanged: (value) {
                 setState(() {
                   _repeatYearly = value;
+                });
+              },
+              activeColor: isDark ? AppColorsDark.primary : AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReminderToggle(bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _remind = !_remind;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColorsDark.input : AppColors.input,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.bell,
+              size: 20,
+              color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '目标日提醒',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+                    ),
+                  ),
+                  Text(
+                    '目标日当天早上8点提醒',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _remind,
+              onChanged: (value) {
+                setState(() {
+                  _remind = value;
                 });
               },
               activeColor: isDark ? AppColorsDark.primary : AppColors.primary,

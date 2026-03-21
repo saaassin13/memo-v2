@@ -35,6 +35,7 @@ class TodoList extends _$TodoList {
     String category = '杂项',
     DateTime? dueDate,
     String? note,
+    bool remind = false,
   }) async {
     final repo = ref.read(todoRepositoryProvider);
     final now = DateTime.now();
@@ -45,6 +46,7 @@ class TodoList extends _$TodoList {
       dueDate: Value(dueDate),
       note: Value(note),
       completed: const Value(false),
+      remind: Value(remind),
       createdAt: Value(now),
       updatedAt: Value(now),
     ));

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../../providers/notification_settings_provider.dart';
 import 'widgets/theme_selector.dart';
 import 'widgets/data_management.dart';
 
@@ -11,6 +12,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final notifySettings = ref.watch(notificationSettingsProvider);
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -44,9 +47,11 @@ class SettingsScreen extends ConsumerWidget {
                   icon: LucideIcons.bell,
                   title: '待办提醒',
                   subtitle: '在待办截止时发送通知',
-                  value: true,
+                  value: notifySettings.todoReminder,
                   onChanged: (value) {
-                    // TODO: 实现通知设置
+                    ref
+                        .read(notificationSettingsProvider.notifier)
+                        .setTodoReminder(value);
                   },
                 ),
                 const Divider(height: 1, indent: 56),
@@ -55,9 +60,11 @@ class SettingsScreen extends ConsumerWidget {
                   icon: LucideIcons.calendar,
                   title: '倒数日提醒',
                   subtitle: '在倒数日当天发送通知',
-                  value: true,
+                  value: notifySettings.countdownReminder,
                   onChanged: (value) {
-                    // TODO: 实现通知设置
+                    ref
+                        .read(notificationSettingsProvider.notifier)
+                        .setCountdownReminder(value);
                   },
                 ),
               ],

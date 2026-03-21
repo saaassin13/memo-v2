@@ -17,6 +17,9 @@ class Countdowns extends Table {
   /// 是否每年重复 (用于纪念日)
   BoolColumn get repeatYearly => boolean().withDefault(const Constant(false))();
 
+  /// 是否开启提醒
+  BoolColumn get remind => boolean().withDefault(const Constant(false))();
+
   /// 图标
   TextColumn get icon => text().nullable()();
 

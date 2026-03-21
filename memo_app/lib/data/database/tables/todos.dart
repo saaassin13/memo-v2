@@ -20,6 +20,9 @@ class Todos extends Table {
   /// 是否已完成
   BoolColumn get completed => boolean().withDefault(const Constant(false))();
 
+  /// 是否开启提醒
+  BoolColumn get remind => boolean().withDefault(const Constant(false))();
+
   /// 创建时间
   DateTimeColumn get createdAt => dateTime()();
 

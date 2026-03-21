@@ -62,5 +62,11 @@
 	<!-- Universal Links -->
 	<key>FlutterDeepLinkingEnabled</key>
 	<true/>
+	<!-- Notification Permission -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

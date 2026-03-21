@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../providers/notification_settings_provider.dart';
 import '../../../data/database/app_database.dart';
 import '../../../providers/countdown_provider.dart';
 import '../../components/buttons/app_button.dart';
@@ -268,6 +270,7 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
               targetDate: data.targetDate,
               type: data.type,
               repeatYearly: data.repeatYearly,
+              remind: data.remind,
               icon: countdown.icon,
               color: countdown.color,
               createdAt: countdown.createdAt,
@@ -283,7 +286,17 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
                   targetDate: data.targetDate,
                   type: data.type,
                   repeatYearly: data.repeatYearly,
+                  remind: data.remind,
                 );
+          }
+          // Schedule reminder notification
+          final notifySettings = ref.read(notificationSettingsProvider);
+          if (data.remind && notifySettings.countdownReminder) {
+            NotificationService.instance.scheduleCountdownReminder(
+              countdownId: countdown?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              title: data.title,
+              targetDate: data.targetDate,
+            );
           }
         },
       ),

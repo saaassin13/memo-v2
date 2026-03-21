@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../providers/notification_settings_provider.dart';
 import '../../../data/database/app_database.dart';
 import '../../../providers/todo_provider.dart';
 import '../../components/buttons/app_button.dart';
@@ -249,6 +251,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               dueDate: data.dueDate,
               note: data.note,
               completed: todo.completed,
+              remind: data.remind,
               createdAt: todo.createdAt,
               updatedAt: DateTime.now(),
             );
@@ -268,7 +271,17 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
                   category: data.category,
                   dueDate: data.dueDate,
                   note: data.note,
+                  remind: data.remind,
                 );
+          }
+          // Schedule reminder notification
+          final notifySettings = ref.read(notificationSettingsProvider);
+          if (data.remind && data.dueDate != null && notifySettings.todoReminder) {
+            NotificationService.instance.scheduleTodoReminder(
+              todoId: todo?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              title: data.title,
+              dueDate: data.dueDate!,
+            );
           }
         },
       ),

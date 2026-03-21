@@ -16,6 +16,7 @@ class TodoData {
     required this.category,
     this.dueDate,
     this.note,
+    this.remind = false,
   });
 
   /// The todo title.
@@ -29,6 +30,9 @@ class TodoData {
 
   /// Optional note.
   final String? note;
+
+  /// Whether to enable reminder notification.
+  final bool remind;
 }
 
 /// A bottom sheet for creating or editing a todo.
@@ -55,6 +59,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   late final TextEditingController _noteController;
   String _category = '杂项';
   DateTime? _dueDate;
+  bool _remind = false;
 
   static const List<String> _categories = ['工作', '生活', '学习', '杂项'];
 
@@ -65,6 +70,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
     _noteController = TextEditingController(text: widget.todo?.note);
     _category = widget.todo?.category ?? '杂项';
     _dueDate = widget.todo?.dueDate;
+    _remind = widget.todo?.remind ?? false;
   }
 
   @override
@@ -118,6 +124,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   void _clearDate() {
     setState(() {
       _dueDate = null;
+      _remind = false;
     });
   }
 
@@ -132,6 +139,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
       category: _category,
       dueDate: _dueDate,
       note: _noteController.text.trim().isNotEmpty ? _noteController.text.trim() : null,
+      remind: _remind,
     );
     widget.onSave(data);
     Navigator.pop(context);
@@ -171,10 +179,11 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
           top: 16,
           bottom: bottomPadding + 16,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Drag handle
             Center(
               child: Container(
@@ -209,6 +218,11 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
             const SizedBox(height: 16),
             // Date picker
             _buildDatePicker(isDark),
+            // Reminder toggle (only when due date is set)
+            if (_dueDate != null) ...[
+              const SizedBox(height: 16),
+              _buildReminderToggle(isDark),
+            ],
             const SizedBox(height: 16),
             // Note input
             AppTextArea(
@@ -225,6 +239,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               fullWidth: true,
             ),
           ],
+        ),
         ),
       ),
     );
@@ -326,6 +341,63 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildReminderToggle(bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _remind = !_remind;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColorsDark.input : AppColors.input,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.bell,
+              size: 20,
+              color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '到期提醒',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+                    ),
+                  ),
+                  Text(
+                    '提前1天和当天各提醒一次',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _remind,
+              onChanged: (value) {
+                setState(() {
+                  _remind = value;
+                });
+              },
+              activeColor: isDark ? AppColorsDark.primary : AppColors.primary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
