@@ -22,7 +22,11 @@ class WeightScreen extends ConsumerStatefulWidget {
 }
 
 class _WeightScreenState extends ConsumerState<WeightScreen> {
-  bool _showChart = true;
+  static const int _pageSize = 10;
+
+  bool _showChart = false;
+  TimeRange _selectedRange = TimeRange.month;
+  int _displayCount = _pageSize;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +125,11 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
       previousWeight = records[1].weight;
     }
 
+    // 按时间范围过滤记录
+    final filteredRecords = _filterRecordsByRange(records, _selectedRange);
+    // 过滤后的记录按日期降序排列
+    filteredRecords.sort((a, b) => b.date.compareTo(a.date));
+
     return Column(
       children: [
         // 体重摘要
@@ -134,13 +143,8 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
         ),
         // 图表或列表区域
         _showChart
-            ? _buildChartSection(context, isDark, records)
-            : Expanded(
-                child: WeightRecordList(
-                  records: records,
-                  onDelete: (id) => _deleteRecord(id),
-                ),
-              ),
+            ? _buildChartSection(context, isDark, records, filteredRecords)
+            : _buildListSection(context, isDark, filteredRecords),
       ],
     );
   }
@@ -188,8 +192,41 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
     );
   }
 
-  Widget _buildChartSection(
+  Widget _buildListSection(
       BuildContext context, bool isDark, List<WeightRecord> records) {
+    final hasMore = _displayCount < records.length;
+    final displayRecords = records.take(_displayCount).toList();
+
+    return Expanded(
+      child: Column(
+        children: [
+          // 时间范围选择器
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: _buildTimeRangeSelector(isDark),
+          ),
+          // 记录列表
+          Expanded(
+            child: WeightRecordList(
+              records: displayRecords,
+              hasMore: hasMore,
+              onLoadMore: hasMore
+                  ? () {
+                      setState(() {
+                        _displayCount += _pageSize;
+                      });
+                    }
+                  : null,
+              onDelete: (id) => _deleteRecord(id),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartSection(
+      BuildContext context, bool isDark, List<WeightRecord> allRecords, List<WeightRecord> filteredRecords) {
     return Expanded(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -197,7 +234,15 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
           // 图表区域
           SizedBox(
             height: 220,
-            child: WeightChart(records: records),
+            child: WeightChart(
+              records: allRecords,
+              selectedRange: _selectedRange,
+              onTimeRangeChanged: (range) {
+                setState(() {
+                  _selectedRange = range;
+                });
+              },
+            ),
           ),
           // 分隔线
           Padding(
@@ -222,7 +267,7 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  '共 ${records.length} 条',
+                  '共 ${filteredRecords.length} 条',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
@@ -232,10 +277,88 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
             ),
           ),
           // 记录列表（内嵌在 ListView 中，不再需要 Expanded）
-          ...records.take(10).map((record) => _buildRecordItem(context, isDark, record, records)),
+          ...filteredRecords.take(10).map((record) => _buildRecordItem(context, isDark, record, filteredRecords)),
         ],
       ),
     );
+  }
+
+  List<WeightRecord> _filterRecordsByRange(List<WeightRecord> records, TimeRange range) {
+    final now = DateTime.now();
+    final startDate = switch (range) {
+      TimeRange.week => now.subtract(const Duration(days: 7)),
+      TimeRange.month => DateTime(now.year, now.month - 1, now.day),
+      TimeRange.year => DateTime(now.year - 1, now.month, now.day),
+    };
+
+    return records
+        .where((r) => r.date.isAfter(startDate) || r.date.isAtSameMomentAs(startDate))
+        .toList();
+  }
+
+  Widget _buildTimeRangeSelector(bool isDark) {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: isDark ? AppColorsDark.input : AppColors.input,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: TimeRange.values.map((range) {
+          final isSelected = _selectedRange == range;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedRange = range;
+                  _displayCount = _pageSize;
+                });
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? AppColorsDark.card : AppColors.card)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                margin: const EdgeInsets.all(3),
+                child: Center(
+                  child: Text(
+                    _getRangeLabel(range),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected
+                          ? (isDark ? AppColorsDark.foreground : AppColors.foreground)
+                          : (isDark
+                              ? AppColorsDark.mutedForeground
+                              : AppColors.mutedForeground),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getRangeLabel(TimeRange range) {
+    return switch (range) {
+      TimeRange.week => '周',
+      TimeRange.month => '月',
+      TimeRange.year => '年',
+    };
   }
 
   Widget _buildRecordItem(BuildContext context, bool isDark, WeightRecord record, List<WeightRecord> allRecords) {

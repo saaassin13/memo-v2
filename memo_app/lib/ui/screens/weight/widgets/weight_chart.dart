@@ -18,11 +18,15 @@ class WeightChart extends StatefulWidget {
   const WeightChart({
     super.key,
     required this.records,
+    this.selectedRange,
     this.onTimeRangeChanged,
   });
 
   /// 体重记录列表
   final List<WeightRecord> records;
+
+  /// 外部控制的时间范围
+  final TimeRange? selectedRange;
 
   /// 时间范围变更回调
   final ValueChanged<TimeRange>? onTimeRangeChanged;
@@ -32,8 +36,10 @@ class WeightChart extends StatefulWidget {
 }
 
 class _WeightChartState extends State<WeightChart> {
-  TimeRange _selectedRange = TimeRange.month;
+  TimeRange _internalRange = TimeRange.month;
   int? _touchedIndex;
+
+  TimeRange get _selectedRange => widget.selectedRange ?? _internalRange;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +78,7 @@ class _WeightChartState extends State<WeightChart> {
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedRange = range;
+                  _internalRange = range;
                   _touchedIndex = null;
                 });
                 widget.onTimeRangeChanged?.call(range);

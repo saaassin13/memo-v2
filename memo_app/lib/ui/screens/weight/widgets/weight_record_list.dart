@@ -6,13 +6,15 @@ import '../../../../core/theme/colors.dart';
 import '../../../../data/database/app_database.dart';
 
 /// 体重记录列表组件
-class WeightRecordList extends StatelessWidget {
+class WeightRecordList extends StatefulWidget {
   /// 创建 WeightRecordList
   const WeightRecordList({
     super.key,
     required this.records,
     required this.onDelete,
     this.onTap,
+    this.onLoadMore,
+    this.hasMore = false,
   });
 
   /// 体重记录列表
@@ -24,20 +26,68 @@ class WeightRecordList extends StatelessWidget {
   /// 点击回调
   final ValueChanged<WeightRecord>? onTap;
 
+  /// 加载更多回调
+  final VoidCallback? onLoadMore;
+
+  /// 是否还有更多数据
+  final bool hasMore;
+
+  @override
+  State<WeightRecordList> createState() => _WeightRecordListState();
+}
+
+class _WeightRecordListState extends State<WeightRecordList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!widget.hasMore || widget.onLoadMore == null) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      widget.onLoadMore!();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (records.isEmpty) {
+    if (widget.records.isEmpty) {
       return _buildEmptyState(context);
     }
 
     // 按日期分组
-    final groupedRecords = _groupByDate(records);
+    final groupedRecords = _groupByDate(widget.records);
+    final groupEntries = groupedRecords.entries.toList();
 
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: groupedRecords.length,
+      itemCount: groupEntries.length + (widget.hasMore ? 1 : 0),
       itemBuilder: (context, index) {
-        final entry = groupedRecords.entries.elementAt(index);
+        if (index == groupEntries.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        final entry = groupEntries[index];
         return _buildDateGroup(context, entry.key, entry.value);
       },
     );
@@ -134,10 +184,10 @@ class WeightRecordList extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 查找前一条记录计算变化
-    final currentIndex = records.indexOf(record);
+    final currentIndex = widget.records.indexOf(record);
     WeightRecord? previousRecord;
-    if (currentIndex < records.length - 1) {
-      previousRecord = records[currentIndex + 1];
+    if (currentIndex < widget.records.length - 1) {
+      previousRecord = widget.records[currentIndex + 1];
     }
 
     final change = previousRecord != null ? record.weight - previousRecord.weight : null;
@@ -185,9 +235,9 @@ class WeightRecordList extends StatelessWidget {
           ),
         );
       },
-      onDismissed: (direction) => onDelete(record.id),
+      onDismissed: (direction) => widget.onDelete(record.id),
       child: GestureDetector(
-        onTap: () => onTap?.call(record),
+        onTap: () => widget.onTap?.call(record),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
