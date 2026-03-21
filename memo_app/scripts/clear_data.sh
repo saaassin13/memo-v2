@@ -51,15 +51,8 @@ clear_android() {
     exit 1
   fi
 
-  # 方式1: pm clear 会清空全部应用数据(包括SharedPreferences)
-  # adb shell pm clear "$PACKAGE"
-
-  # 方式2: 只删除数据库文件
-  adb shell "run-as $PACKAGE rm -f databases/$DB_NAME" 2>/dev/null && \
-    echo "已删除 Android 数据库 (run-as)" || \
-    echo "run-as 失败, 可能需要 root 权限或debug签名"
-
-  echo "也可使用: adb shell pm clear $PACKAGE (清空全部应用数据)"
+  adb shell pm clear "$PACKAGE"
+  echo "已清空 Android 应用数据 ($PACKAGE)"
 }
 
 case "$PLATFORM" in

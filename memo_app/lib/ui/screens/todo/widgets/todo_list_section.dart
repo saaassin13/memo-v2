@@ -54,6 +54,15 @@ class _TodoListSectionState extends State<TodoListSection>
   late AnimationController _controller;
   late Animation<double> _iconTurns;
   late Animation<double> _heightFactor;
+  final Set<String> _dismissedIds = {};
+
+  @override
+  void didUpdateWidget(covariant TodoListSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear dismissed IDs when the todo list updates from provider
+    final currentIds = widget.todos.map((t) => t.id).toSet();
+    _dismissedIds.removeWhere((id) => !currentIds.contains(id));
+  }
 
   @override
   void initState() {
@@ -184,8 +193,10 @@ class _TodoListSectionState extends State<TodoListSection>
       return const SizedBox.shrink();
     }
 
+    final visibleTodos = widget.todos.where((todo) => !_dismissedIds.contains(todo.id)).toList();
+
     return Column(
-      children: widget.todos.map((todo) {
+      children: visibleTodos.map((todo) {
         Widget todoItem = Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
@@ -232,10 +243,16 @@ class _TodoListSectionState extends State<TodoListSection>
               ),
             ),
             confirmDismiss: (direction) async {
-              return await _showDeleteConfirmation(context);
-            },
-            onDismissed: (direction) {
-              widget.onDismissed!(todo.id);
+              final confirmed = await _showDeleteConfirmation(context);
+              if (confirmed == true) {
+                setState(() {
+                  _dismissedIds.add(todo.id);
+                });
+                widget.onDismissed!(todo.id);
+                // Return false to prevent Dismissible animation - we remove via state instead
+                return false;
+              }
+              return false;
             },
             child: todoItem,
           );

@@ -107,7 +107,6 @@ class CountdownCard extends StatelessWidget {
     required this.countdown,
     this.onTap,
     this.onLongPress,
-    this.onDelete,
   });
 
   /// The countdown data to display.
@@ -118,9 +117,6 @@ class CountdownCard extends StatelessWidget {
 
   /// Called when the card is long pressed.
   final VoidCallback? onLongPress;
-
-  /// Called when delete action is triggered.
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -134,107 +130,87 @@ class CountdownCard extends StatelessWidget {
     final isToday = days == 0;
     final isPast = days < 0;
 
-    return Dismissible(
-      key: Key(countdown.id),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await _showDeleteConfirmation(context);
-      },
-      onDismissed: (_) => onDelete?.call(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? AppColorsDark.destructive : AppColors.destructive,
+          color: isDark ? AppColorsDark.card : AppColors.card,
           borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          LucideIcons.trash2,
-          color: Colors.white,
-        ),
-      ),
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? AppColorsDark.card : AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isToday
-                  ? category.color.withOpacity(0.5)
-                  : (isDark ? AppColorsDark.border : AppColors.border),
-              width: isToday ? 2 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+          border: Border.all(
+            color: isToday
+                ? category.color.withOpacity(0.5)
+                : (isDark ? AppColorsDark.border : AppColors.border),
+            width: isToday ? 2 : 1,
           ),
-          child: Row(
-            children: [
-              // Category icon
-              _buildCategoryIcon(category, isDark),
-              const SizedBox(width: 16),
-              // Title and date info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      countdown.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColorsDark.foreground : AppColors.foreground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Category icon
+            _buildCategoryIcon(category, isDark),
+            const SizedBox(width: 16),
+            // Title and date info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    countdown.title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColorsDark.foreground : AppColors.foreground,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.calendar,
+                        size: 14,
+                        color: isDark
+                            ? AppColorsDark.mutedForeground
+                            : AppColors.mutedForeground,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(countdown.targetDate),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? AppColorsDark.mutedForeground
+                              : AppColors.mutedForeground,
+                        ),
+                      ),
+                      if (countdown.repeatYearly) ...[
+                        const SizedBox(width: 8),
                         Icon(
-                          LucideIcons.calendar,
+                          LucideIcons.repeat,
                           size: 14,
                           color: isDark
                               ? AppColorsDark.mutedForeground
                               : AppColors.mutedForeground,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(countdown.targetDate),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark
-                                ? AppColorsDark.mutedForeground
-                                : AppColors.mutedForeground,
-                          ),
-                        ),
-                        if (countdown.repeatYearly) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            LucideIcons.repeat,
-                            size: 14,
-                            color: isDark
-                                ? AppColorsDark.mutedForeground
-                                : AppColors.mutedForeground,
-                          ),
-                        ],
                       ],
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              // Days count
-              _buildDaysCount(days, daysText, isToday, isPast, category, isDark),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            // Days count
+            _buildDaysCount(days, daysText, isToday, isPast, category, isDark),
+          ],
         ),
       ),
     );
@@ -309,48 +285,5 @@ class CountdownCard extends StatelessWidget {
       return '${date.month}月${date.day}日';
     }
     return '${date.year}年${date.month}月${date.day}日';
-  }
-
-  Future<bool> _showDeleteConfirmation(BuildContext context) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
-            title: Text(
-              '确认删除',
-              style: TextStyle(
-                color: isDark ? AppColorsDark.foreground : AppColors.foreground,
-              ),
-            ),
-            content: Text(
-              '确定要删除「${countdown.title}」吗？',
-              style: TextStyle(
-                color: isDark ? AppColorsDark.foreground : AppColors.foreground,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  '取消',
-                  style: TextStyle(
-                    color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(
-                  '删除',
-                  style: TextStyle(
-                    color: isDark ? AppColorsDark.destructive : AppColors.destructive,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
   }
 }

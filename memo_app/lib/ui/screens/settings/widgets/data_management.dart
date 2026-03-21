@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../../data/database/app_database.dart';
@@ -69,11 +68,27 @@ class DataManagement extends ConsumerWidget {
 
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final file = File('${tempDir.path}/memo_backup_$timestamp.json');
-      await file.writeAsString(jsonEncode(backupData));
+      final tempFile = File('${tempDir.path}/memo_backup_$timestamp.json');
+      await tempFile.writeAsString(jsonEncode(backupData));
 
       if (context.mounted) Navigator.of(context).pop();
-      await Share.shareXFiles([XFile(file.path)], text: 'Memo 数据备份');
+
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: '保存备份文件',
+        fileName: 'memo_backup_$timestamp.json',
+        type: FileType.custom,
+        allowedExtensions: ['json',
+        ],
+        bytes: await tempFile.readAsBytes(),
+      );
+
+      if (context.mounted) {
+        if (savedPath != null) {
+          _showSuccessSnackBar(context, '备份已保存');
+        } else {
+          _showErrorSnackBar(context, '已取消保存');
+        }
+      }
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
@@ -154,16 +169,18 @@ class DataManagement extends ConsumerWidget {
     final diaries = await db.select(db.diaryEntries).get();
     final transactions = await db.select(db.transactions).get();
     final goals = await db.select(db.goals).get();
+    final goalProgressRecords = await db.select(db.goalProgressRecords).get();
     final weights = await db.select(db.weightRecords).get();
     final countdowns = await db.select(db.countdowns).get();
 
     return {
-      'version': 1,
+      'version': 2,
       'exportedAt': DateTime.now().toIso8601String(),
       'todos': todos.map((e) => {
         'id': e.id, 'title': e.title, 'category': e.category,
         'dueDate': e.dueDate?.toIso8601String(), 'note': e.note,
-        'completed': e.completed, 'createdAt': e.createdAt.toIso8601String(),
+        'completed': e.completed, 'remind': e.remind,
+        'createdAt': e.createdAt.toIso8601String(),
         'updatedAt': e.updatedAt.toIso8601String(),
       }).toList(),
       'memos': memos.map((e) => {
@@ -191,13 +208,18 @@ class DataManagement extends ConsumerWidget {
         'completed': e.completed, 'createdAt': e.createdAt.toIso8601String(),
         'updatedAt': e.updatedAt.toIso8601String(),
       }).toList(),
+      'goalProgressRecords': goalProgressRecords.map((e) => {
+        'id': e.id, 'goalId': e.goalId, 'previousValue': e.previousValue,
+        'newValue': e.newValue, 'change': e.change, 'note': e.note,
+        'createdAt': e.createdAt.toIso8601String(),
+      }).toList(),
       'weights': weights.map((e) => {
         'id': e.id, 'weight': e.weight, 'date': e.date.toIso8601String(),
         'note': e.note, 'createdAt': e.createdAt.toIso8601String(),
       }).toList(),
       'countdowns': countdowns.map((e) => {
         'id': e.id, 'title': e.title, 'targetDate': e.targetDate.toIso8601String(),
-        'type': e.type, 'repeatYearly': e.repeatYearly,
+        'type': e.type, 'repeatYearly': e.repeatYearly, 'remind': e.remind,
         'color': e.color, 'icon': e.icon,
         'createdAt': e.createdAt.toIso8601String(),
         'updatedAt': e.updatedAt.toIso8601String(),
@@ -219,6 +241,7 @@ class DataManagement extends ConsumerWidget {
         dueDate: Value(item['dueDate'] != null ? DateTime.parse(item['dueDate']) : null),
         note: Value(item['note']),
         completed: Value(item['completed'] ?? false),
+        remind: Value(item['remind'] ?? false),
         createdAt: DateTime.parse(item['createdAt']),
         updatedAt: DateTime.parse(item['updatedAt']),
       ));
@@ -249,6 +272,82 @@ class DataManagement extends ConsumerWidget {
         mood: Value(item['mood']),
         weather: Value(item['weather']),
         images: Value(item['images']),
+        createdAt: DateTime.parse(item['createdAt']),
+        updatedAt: DateTime.parse(item['updatedAt']),
+      ));
+    }
+
+    // Import transactions
+    final transactions = data['transactions'] as List? ?? [];
+    for (final item in transactions) {
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+        id: item['id'],
+        type: item['type'],
+        amount: item['amount'],
+        category: item['category'],
+        note: Value(item['note']),
+        date: DateTime.parse(item['date']),
+        createdAt: DateTime.parse(item['createdAt']),
+      ));
+    }
+
+    // Import goals
+    final goals = data['goals'] as List? ?? [];
+    for (final item in goals) {
+      await db.into(db.goals).insert(GoalsCompanion.insert(
+        id: item['id'],
+        title: item['title'],
+        description: Value(item['description']),
+        type: item['type'],
+        targetValue: Value(item['targetValue'] ?? 1),
+        currentValue: Value(item['currentValue'] ?? 0),
+        unit: Value(item['unit']),
+        startDate: DateTime.parse(item['startDate']),
+        endDate: Value(item['endDate'] != null ? DateTime.parse(item['endDate']) : null),
+        completed: Value(item['completed'] ?? false),
+        createdAt: DateTime.parse(item['createdAt']),
+        updatedAt: DateTime.parse(item['updatedAt']),
+      ));
+    }
+
+    // Import goal progress records
+    final progressRecords = data['goalProgressRecords'] as List? ?? [];
+    for (final item in progressRecords) {
+      await db.into(db.goalProgressRecords).insert(GoalProgressRecordsCompanion.insert(
+        id: item['id'],
+        goalId: item['goalId'],
+        previousValue: item['previousValue'],
+        newValue: item['newValue'],
+        change: item['change'],
+        note: Value(item['note']),
+        createdAt: DateTime.parse(item['createdAt']),
+      ));
+    }
+
+    // Import weights
+    final weights = data['weights'] as List? ?? [];
+    for (final item in weights) {
+      await db.into(db.weightRecords).insert(WeightRecordsCompanion.insert(
+        id: item['id'],
+        weight: item['weight'],
+        date: DateTime.parse(item['date']),
+        note: Value(item['note']),
+        createdAt: DateTime.parse(item['createdAt']),
+      ));
+    }
+
+    // Import countdowns
+    final countdowns = data['countdowns'] as List? ?? [];
+    for (final item in countdowns) {
+      await db.into(db.countdowns).insert(CountdownsCompanion.insert(
+        id: item['id'],
+        title: item['title'],
+        targetDate: DateTime.parse(item['targetDate']),
+        type: item['type'],
+        repeatYearly: Value(item['repeatYearly'] ?? false),
+        remind: Value(item['remind'] ?? false),
+        icon: Value(item['icon']),
+        color: Value(item['color']),
         createdAt: DateTime.parse(item['createdAt']),
         updatedAt: DateTime.parse(item['updatedAt']),
       ));

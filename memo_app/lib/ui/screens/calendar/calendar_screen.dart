@@ -181,18 +181,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         break;
       case CalendarEventType.diary:
         // Navigate to diary detail
-        context.push(Routes.diaryDetail(originalId));
+        context.push(Routes.diaryDetail(originalId)).then((_) => _refreshEvents());
         break;
       case CalendarEventType.countdown:
         // Navigate to countdown screen (no individual detail, but we can show a dialog)
-        context.push(Routes.countdown);
+        context.push(Routes.countdown).then((_) => _refreshEvents());
         break;
     }
   }
 
-  void _showTodoEditForEvent(String todoId) async {
-    // We need to fetch the todo first to show edit sheet
-    // For simplicity, navigate to a dialog or show the event detail
-    context.push(Routes.calendarEvent('todo_$todoId'));
+  void _refreshEvents() {
+    final dateRange = _getDateRange();
+    ref.invalidate(calendarEventsProvider(
+      startDate: dateRange.start,
+      endDate: dateRange.end,
+    ));
+  }
+
+  void _showTodoEditForEvent(String todoId) {
+    context.push(Routes.calendarEvent('todo_$todoId')).then((_) => _refreshEvents());
   }
 }

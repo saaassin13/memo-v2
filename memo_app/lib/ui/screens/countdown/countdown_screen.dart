@@ -24,6 +24,7 @@ class CountdownScreen extends ConsumerStatefulWidget {
 
 class _CountdownScreenState extends ConsumerState<CountdownScreen> {
   String _activeCategory = '全部';
+  final Set<String> _dismissedIds = {};
 
   static const List<String> _categories = ['全部', '生日', '节日', '重要日'];
 
@@ -176,28 +177,14 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
         if (upcoming.isNotEmpty) ...[
           _buildSectionHeader('即将到来', upcoming.length, isDark),
           const SizedBox(height: 12),
-          ...upcoming.map((countdown) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: CountdownCard(
-                  countdown: countdown,
-                  onTap: () => _showEditSheet(context, countdown: countdown),
-                  onDelete: () => _deleteCountdown(countdown.id),
-                ),
-              )),
+          ...upcoming.where((c) => !_dismissedIds.contains(c.id)).map((countdown) => _buildDismissibleCountdown(countdown, isDark)),
         ],
         // Past section
         if (past.isNotEmpty) ...[
           if (upcoming.isNotEmpty) const SizedBox(height: 16),
           _buildSectionHeader('已经过去', past.length, isDark),
           const SizedBox(height: 12),
-          ...past.map((countdown) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: CountdownCard(
-                  countdown: countdown,
-                  onTap: () => _showEditSheet(context, countdown: countdown),
-                  onDelete: () => _deleteCountdown(countdown.id),
-                ),
-              )),
+          ...past.where((c) => !_dismissedIds.contains(c.id)).map((countdown) => _buildDismissibleCountdown(countdown, isDark)),
         ],
       ],
     );
@@ -232,6 +219,82 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildDismissibleCountdown(Countdown countdown, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Dismissible(
+        key: Key(countdown.id),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (_) async {
+          final confirmed = await _showDeleteConfirmation(context, countdown.title, isDark);
+          if (confirmed == true) {
+            setState(() {
+              _dismissedIds.add(countdown.id);
+            });
+            _deleteCountdown(countdown.id);
+            return false;
+          }
+          return false;
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: isDark ? AppColorsDark.destructive : AppColors.destructive,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(LucideIcons.trash2, color: Colors.white),
+        ),
+        child: CountdownCard(
+          countdown: countdown,
+          onTap: () => _showEditSheet(context, countdown: countdown),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirmation(BuildContext context, String title, bool isDark) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
+            title: Text(
+              '确认删除',
+              style: TextStyle(
+                color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+              ),
+            ),
+            content: Text(
+              '确定要删除「$title」吗？',
+              style: TextStyle(
+                color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  '取消',
+                  style: TextStyle(
+                    color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(
+                  '删除',
+                  style: TextStyle(
+                    color: isDark ? AppColorsDark.destructive : AppColors.destructive,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Widget _buildEmptyState() {
