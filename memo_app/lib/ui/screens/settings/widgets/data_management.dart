@@ -331,15 +331,17 @@ class DataManagement extends ConsumerWidget {
     // Import diaries（重新映射图片路径）
     final diaries = data['diaries'] as List? ?? [];
     for (final item in diaries) {
+      String content = item['content'];
       String? images = item['images'];
       if (pathMapping.isNotEmpty) {
+        content = _remapMemoContent(content, pathMapping);
         images = _remapDiaryImages(images, pathMapping);
       }
       await db.into(db.diaryEntries).insert(DiaryEntriesCompanion.insert(
         id: item['id'],
         date: DateTime.parse(item['date']),
         title: item['title'],
-        content: item['content'],
+        content: content,
         mood: Value(item['mood']),
         weather: Value(item['weather']),
         images: Value(images),
@@ -460,9 +462,24 @@ class DataManagement extends ConsumerWidget {
       }
     }
 
-    // 从日记图片列表中提取路径
+    // 从日记图片列表中提取路径（旧数据格式）
     final diaries = await db.select(db.diaryEntries).get();
     for (final diary in diaries) {
+      // 从日记 Delta JSON content 中提取图片路径
+      try {
+        final delta = jsonDecode(diary.content) as Map<String, dynamic>;
+        final ops = delta['ops'] as List? ?? [];
+        for (final op in ops) {
+          final insert = op['insert'];
+          if (insert is Map && insert['image'] is String) {
+            final imagePath = insert['image'] as String;
+            if (imagePath.startsWith('/')) {
+              imagePaths.add(imagePath);
+            }
+          }
+        }
+      } catch (_) {}
+      // 从旧的 images 列中提取路径（向后兼容）
       if (diary.images != null && diary.images!.isNotEmpty) {
         try {
           final paths = jsonDecode(diary.images!) as List;
