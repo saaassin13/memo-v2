@@ -62,6 +62,11 @@
 	<!-- Universal Links -->
 	<key>FlutterDeepLinkingEnabled</key>
 	<true/>
+	<!-- Image Picker Permissions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要访问相册以选择图片插入备忘录</string>
+	<key>NSCameraUsageDescription</key>
+	<string>需要使用相机拍摄照片插入备忘录</string>
 	<!-- Notification Permission -->
 	<key>UIBackgroundModes</key>
 	<array>

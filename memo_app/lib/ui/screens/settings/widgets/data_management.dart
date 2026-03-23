@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -65,25 +67,47 @@ class DataManagement extends ConsumerWidget {
       final db = ref.read(appDatabaseProvider);
       final backupData = await _exportData(db);
 
+      // 收集所有图片路径
+      final imagePaths = await _collectImagePaths(db);
+
+      // 创建 ZIP 归档
+      final archive = Archive();
+
+      // 添加 backup.json
+      final jsonBytes = utf8.encode(jsonEncode(backupData));
+      archive.addFile(ArchiveFile('backup.json', jsonBytes.length, jsonBytes));
+
+      // 添加图片文件
+      for (final imagePath in imagePaths) {
+        final imageFile = File(imagePath);
+        if (await imageFile.exists()) {
+          final bytes = await imageFile.readAsBytes();
+          final fileName = 'images/${p.basename(imagePath)}';
+          archive.addFile(ArchiveFile(fileName, bytes.length, bytes));
+        }
+      }
+
+      // 编码为 ZIP
+      final zipBytes = ZipEncoder().encode(archive)!;
+
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final tempFile = File('${tempDir.path}/memo_backup_$timestamp.json');
-      await tempFile.writeAsString(jsonEncode(backupData));
+      final tempFile = File('${tempDir.path}/memo_backup_$timestamp.zip');
+      await tempFile.writeAsBytes(zipBytes);
 
       if (context.mounted) Navigator.of(context).pop();
 
       final savedPath = await FilePicker.platform.saveFile(
         dialogTitle: '保存备份文件',
-        fileName: 'memo_backup_$timestamp.json',
+        fileName: 'memo_backup_$timestamp.zip',
         type: FileType.custom,
-        allowedExtensions: ['json',
-        ],
-        bytes: await tempFile.readAsBytes(),
+        allowedExtensions: ['zip'],
+        bytes: Uint8List.fromList(zipBytes),
       );
 
       if (context.mounted) {
         if (savedPath != null) {
-          _showSuccessSnackBar(context, '备份已保存');
+          _showSuccessSnackBar(context, '备份已保存（含 ${imagePaths.length} 张图片）');
         } else {
           _showErrorSnackBar(context, '已取消保存');
         }
@@ -108,23 +132,65 @@ class DataManagement extends ConsumerWidget {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['zip', 'json'],
       );
       if (result == null || result.files.isEmpty) return;
 
       final file = File(result.files.first.path!);
-      final content = await file.readAsString();
-      final data = jsonDecode(content) as Map<String, dynamic>;
+      final fileBytes = await file.readAsBytes();
 
       if (!context.mounted) return;
       _showLoadingDialog(context, '正在恢复数据...');
 
       final db = ref.read(appDatabaseProvider);
-      await _importData(db, data);
+      Map<String, dynamic> data;
+      Map<String, List<int>> imageFiles = {};
+
+      // 判断是 ZIP 还是旧版 JSON
+      if (file.path.endsWith('.zip')) {
+        final archive = ZipDecoder().decodeBytes(fileBytes);
+        // 读取 backup.json
+        final jsonFile = archive.findFile('backup.json');
+        if (jsonFile == null) {
+          throw Exception('备份文件格式无效：缺少 backup.json');
+        }
+        data = jsonDecode(utf8.decode(jsonFile.content as List<int>)) as Map<String, dynamic>;
+        // 读取图片文件
+        for (final archiveFile in archive) {
+          if (archiveFile.name.startsWith('images/') && archiveFile.isFile) {
+            final fileName = p.basename(archiveFile.name);
+            imageFiles[fileName] = archiveFile.content!;
+          }
+        }
+      } else {
+        // 兼容旧版 JSON 格式
+        data = jsonDecode(utf8.decode(fileBytes)) as Map<String, dynamic>;
+      }
+
+      // 恢复图片文件并构建路径映射
+      final pathMapping = <String, String>{};
+      if (imageFiles.isNotEmpty) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final imagesDir = Directory('${appDir.path}/memo_images');
+        if (!await imagesDir.exists()) {
+          await imagesDir.create(recursive: true);
+        }
+        for (final entry in imageFiles.entries) {
+          final imageFile = File('${imagesDir.path}/${entry.key}');
+          await imageFile.writeAsBytes(entry.value);
+          pathMapping[entry.key] = imageFile.path;
+        }
+      }
+
+      await _importData(db, data, pathMapping);
 
       if (context.mounted) {
         Navigator.of(context).pop();
-        _showSuccessSnackBar(context, '数据恢复成功');
+        final imageCount = imageFiles.length;
+        _showSuccessSnackBar(
+          context,
+          imageCount > 0 ? '数据恢复成功（含 $imageCount 张图片）' : '数据恢复成功',
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -225,7 +291,7 @@ class DataManagement extends ConsumerWidget {
     };
   }
 
-  Future<void> _importData(AppDatabase db, Map<String, dynamic> data) async {
+  Future<void> _importData(AppDatabase db, Map<String, dynamic> data, Map<String, String> pathMapping) async {
     await _clearAllData(db);
 
     // Import todos
@@ -244,13 +310,17 @@ class DataManagement extends ConsumerWidget {
       ));
     }
 
-    // Import memos
+    // Import memos（重新映射图片路径）
     final memos = data['memos'] as List? ?? [];
     for (final item in memos) {
+      String content = item['content'];
+      if (pathMapping.isNotEmpty) {
+        content = _remapMemoContent(content, pathMapping);
+      }
       await db.into(db.memos).insert(MemosCompanion.insert(
         id: item['id'],
         title: item['title'],
-        content: item['content'],
+        content: content,
         category: Value(item['category'] ?? '生活'),
         pinned: Value(item['pinned'] ?? false),
         createdAt: DateTime.parse(item['createdAt']),
@@ -258,9 +328,13 @@ class DataManagement extends ConsumerWidget {
       ));
     }
 
-    // Import diaries
+    // Import diaries（重新映射图片路径）
     final diaries = data['diaries'] as List? ?? [];
     for (final item in diaries) {
+      String? images = item['images'];
+      if (pathMapping.isNotEmpty) {
+        images = _remapDiaryImages(images, pathMapping);
+      }
       await db.into(db.diaryEntries).insert(DiaryEntriesCompanion.insert(
         id: item['id'],
         date: DateTime.parse(item['date']),
@@ -268,7 +342,7 @@ class DataManagement extends ConsumerWidget {
         content: item['content'],
         mood: Value(item['mood']),
         weather: Value(item['weather']),
-        images: Value(item['images']),
+        images: Value(images),
         createdAt: DateTime.parse(item['createdAt']),
         updatedAt: DateTime.parse(item['updatedAt']),
       ));
@@ -360,6 +434,90 @@ class DataManagement extends ConsumerWidget {
     await db.delete(db.goals).go();
     await db.delete(db.weightRecords).go();
     await db.delete(db.countdowns).go();
+  }
+
+  /// 收集所有备忘录和日记中引用的图片路径
+  Future<Set<String>> _collectImagePaths(AppDatabase db) async {
+    final imagePaths = <String>{};
+
+    // 从备忘录 Delta JSON 中提取图片路径
+    final memos = await db.select(db.memos).get();
+    for (final memo in memos) {
+      try {
+        final delta = jsonDecode(memo.content) as Map<String, dynamic>;
+        final ops = delta['ops'] as List? ?? [];
+        for (final op in ops) {
+          final insert = op['insert'];
+          if (insert is Map && insert['image'] is String) {
+            final imagePath = insert['image'] as String;
+            if (imagePath.startsWith('/')) {
+              imagePaths.add(imagePath);
+            }
+          }
+        }
+      } catch (_) {
+        // content 不是有效的 JSON Delta，跳过
+      }
+    }
+
+    // 从日记图片列表中提取路径
+    final diaries = await db.select(db.diaryEntries).get();
+    for (final diary in diaries) {
+      if (diary.images != null && diary.images!.isNotEmpty) {
+        try {
+          final paths = jsonDecode(diary.images!) as List;
+          for (final p in paths) {
+            if (p is String && p.startsWith('/')) {
+              imagePaths.add(p);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    return imagePaths;
+  }
+
+  /// 重新映射 JSON 数据中的图片路径（恢复时使用）
+  String _remapMemoContent(String content, Map<String, String> pathMapping) {
+    try {
+      final delta = jsonDecode(content) as Map<String, dynamic>;
+      final ops = delta['ops'] as List? ?? [];
+      bool modified = false;
+      for (final op in ops) {
+        final insert = op['insert'];
+        if (insert is Map && insert['image'] is String) {
+          final oldPath = insert['image'] as String;
+          final fileName = p.basename(oldPath);
+          if (pathMapping.containsKey(fileName)) {
+            insert['image'] = pathMapping[fileName]!;
+            modified = true;
+          }
+        }
+      }
+      if (modified) {
+        return jsonEncode(delta);
+      }
+    } catch (_) {}
+    return content;
+  }
+
+  /// 重新映射日记图片路径列表
+  String? _remapDiaryImages(String? images, Map<String, String> pathMapping) {
+    if (images == null || images.isEmpty) return images;
+    try {
+      final paths = jsonDecode(images) as List;
+      final newPaths = paths.map((p) {
+        if (p is String) {
+          final fileName = p.split('/').last;
+          return pathMapping[fileName] ?? p;
+        }
+        return p;
+      }).toList();
+      return jsonEncode(newPaths);
+    } catch (_) {
+      return images;
+    }
   }
 
   void _showLoadingDialog(BuildContext context, String message) {

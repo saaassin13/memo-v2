@@ -38,6 +38,12 @@ dependencies:
   package_info_plus: ^8.0.0
   shared_preferences: ^2.2.0
 
+  # Image picking
+  image_picker: ^1.0.0
+
+  # Backup archive
+  archive: ^3.6.1
+
   # Rich text editor
   flutter_quill: ^11.0.0-dev
 

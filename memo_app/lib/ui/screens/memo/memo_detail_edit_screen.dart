@@ -1,10 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../data/database/app_database.dart';
@@ -470,6 +474,7 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
             expands: false,
             scrollable: false,
             showCursor: false,
+            embedBuilders: [ImageEmbedBuilder()],
           ),
         ),
       );
@@ -584,6 +589,13 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
                     showInlineCode: true,
                     showUndo: true,
                     showRedo: true,
+                    customButtons: [
+                      QuillToolbarCustomButtonOptions(
+                        icon: const Icon(LucideIcons.image, size: 18),
+                        tooltip: '插入图片',
+                        onPressed: _pickAndInsertImage,
+                      ),
+                    ],
                     multiRowsDisplay: false,
                   ),
                 ),
@@ -603,6 +615,7 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
                         padding: EdgeInsets.zero,
                         expands: true,
                         scrollable: true,
+                        embedBuilders: [ImageEmbedBuilder()],
                       ),
                     ),
                   ),
@@ -612,6 +625,55 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _pickAndInsertImage() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('从相册选择'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: const Text('拍照'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await picker.pickImage(source: source);
+    if (picked == null) return;
+
+    // Copy to app documents directory for persistence
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory('${appDir.path}/memo_images');
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}';
+    final savedImage =
+        await File(picked.path).copy('${imagesDir.path}/$fileName');
+
+    // Insert image embed into Quill editor
+    final index = _quillController.selection.baseOffset;
+    final length = _quillController.selection.extentOffset - index;
+    _quillController.replaceText(
+      index,
+      length,
+      BlockEmbed.image(savedImage.path),
+      null,
     );
   }
 
@@ -835,5 +897,39 @@ class _MemoDetailEditScreenState extends ConsumerState<MemoDetailEditScreen> {
     } else {
       return '${date.year}年${date.month}月${date.day}日 $time';
     }
+  }
+}
+
+/// Embed builder for displaying images in the Quill editor.
+class ImageEmbedBuilder extends EmbedBuilder {
+  @override
+  String get key => BlockEmbed.imageType;
+
+  @override
+  bool get expanded => false;
+
+  @override
+  Widget build(BuildContext context, EmbedContext embedContext) {
+    final imageUrl = embedContext.node.value.data;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(imageUrl),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
