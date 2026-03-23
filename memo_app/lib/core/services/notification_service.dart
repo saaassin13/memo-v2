@@ -67,13 +67,16 @@ class NotificationService {
     required String body,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'memo_channel',
+      'memo_channel_v2',
       '备忘提醒',
       channelDescription: '待办和倒计时提醒',
       importance: Importance.high,
       priority: Priority.high,
+      playSound: true,
     );
-    const iosDetails = DarwinNotificationDetails();
+    const iosDetails = DarwinNotificationDetails(
+      sound: 'default',
+    );
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
@@ -90,13 +93,16 @@ class NotificationService {
     required DateTime scheduledDate,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'memo_channel',
+      'memo_channel_v2',
       '备忘提醒',
       channelDescription: '待办和倒计时提醒',
       importance: Importance.high,
       priority: Priority.high,
+      playSound: true,
     );
-    const iosDetails = DarwinNotificationDetails();
+    const iosDetails = DarwinNotificationDetails(
+      sound: 'default',
+    );
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
