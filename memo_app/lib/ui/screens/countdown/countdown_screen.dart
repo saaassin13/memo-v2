@@ -334,6 +334,7 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
               type: data.type,
               repeatYearly: data.repeatYearly,
               remind: data.remind,
+              remindAdvance: data.remindAdvance,
               icon: countdown.icon,
               color: countdown.color,
               createdAt: countdown.createdAt,
@@ -350,6 +351,7 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
                   type: data.type,
                   repeatYearly: data.repeatYearly,
                   remind: data.remind,
+                  remindAdvance: data.remindAdvance,
                 );
           }
           // Schedule reminder notification
@@ -359,6 +361,7 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
               countdownId: countdown?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
               title: data.title,
               targetDate: data.targetDate,
+              remindAdvance: data.remindAdvance,
             );
           }
         },

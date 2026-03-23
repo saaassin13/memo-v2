@@ -36,6 +36,7 @@ class CountdownList extends _$CountdownList {
     required String type,
     bool repeatYearly = false,
     bool remind = false,
+    int remindAdvance = 1440,
     String? icon,
     String? color,
   }) async {
@@ -48,6 +49,7 @@ class CountdownList extends _$CountdownList {
       type: Value(type),
       repeatYearly: Value(repeatYearly),
       remind: Value(remind),
+      remindAdvance: Value(remindAdvance),
       icon: Value(icon),
       color: Value(color),
       createdAt: Value(now),

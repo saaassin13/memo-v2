@@ -248,6 +248,7 @@ class DataManagement extends ConsumerWidget {
         'id': e.id, 'title': e.title, 'category': e.category,
         'dueDate': e.dueDate?.toIso8601String(), 'note': e.note,
         'completed': e.completed, 'remind': e.remind,
+        'remindAdvance': e.remindAdvance,
         'createdAt': e.createdAt.toIso8601String(),
         'updatedAt': e.updatedAt.toIso8601String(),
       }).toList(),
@@ -288,6 +289,7 @@ class DataManagement extends ConsumerWidget {
       'countdowns': countdowns.map((e) => {
         'id': e.id, 'title': e.title, 'targetDate': e.targetDate.toIso8601String(),
         'type': e.type, 'repeatYearly': e.repeatYearly, 'remind': e.remind,
+        'remindAdvance': e.remindAdvance,
         'color': e.color, 'icon': e.icon,
         'createdAt': e.createdAt.toIso8601String(),
         'updatedAt': e.updatedAt.toIso8601String(),
@@ -309,6 +311,7 @@ class DataManagement extends ConsumerWidget {
         note: Value(item['note']),
         completed: Value(item['completed'] ?? false),
         remind: Value(item['remind'] ?? false),
+        remindAdvance: Value(item['remindAdvance'] ?? 1440),
         createdAt: DateTime.parse(item['createdAt']),
         updatedAt: DateTime.parse(item['updatedAt']),
       ));
@@ -424,6 +427,7 @@ class DataManagement extends ConsumerWidget {
         type: item['type'],
         repeatYearly: Value(item['repeatYearly'] ?? false),
         remind: Value(item['remind'] ?? false),
+        remindAdvance: Value(item['remindAdvance'] ?? 1440),
         icon: Value(item['icon']),
         color: Value(item['color']),
         createdAt: DateTime.parse(item['createdAt']),

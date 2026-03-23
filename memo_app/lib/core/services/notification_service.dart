@@ -116,30 +116,45 @@ class NotificationService {
   }
 
   /// 为 Todo 设置到期提醒
-  /// 提前 1 天和当天各提醒一次
+  /// remindAdvance: 提前提醒分钟数，0=当天，1440=提前1天，4320=提前3天
+  /// 从提前N天到当天，每天都发提醒
   Future<void> scheduleTodoReminder({
     required String todoId,
     required String title,
     required DateTime dueDate,
+    int remindAdvance = 1440,
   }) async {
     final todoHash = todoId.hashCode & 0x7FFFFFFF;
     final now = DateTime.now();
+    final daysAhead = remindAdvance ~/ 1440;
 
-    // 提前 1 天提醒
-    final oneDayBefore = DateTime(
-      dueDate.year,
-      dueDate.month,
-      dueDate.day - 1,
-      9, // 早上 9 点
-      0,
-    );
-    if (oneDayBefore.isAfter(now)) {
-      await schedule(
-        id: todoHash,
-        title: '待办即将到期',
-        body: '"$title" 将于明天到期',
-        scheduledDate: oneDayBefore,
+    // 从提前N天到提前1天，每天提醒
+    for (var d = daysAhead; d >= 1; d--) {
+      final reminderDate = dueDate.subtract(Duration(days: d));
+      final reminderTime = DateTime(
+        reminderDate.year,
+        reminderDate.month,
+        reminderDate.day,
+        9, // 早上 9 点
+        0,
       );
+      final body = '"$title" 还有$d天到期';
+      if (reminderTime.isAfter(now)) {
+        await schedule(
+          id: todoHash + d,
+          title: '待办即将到期',
+          body: body,
+          scheduledDate: reminderTime,
+        );
+      } else if (reminderTime.year == now.year &&
+          reminderTime.month == now.month &&
+          reminderTime.day == now.day) {
+        await show(
+          id: todoHash + d,
+          title: '待办即将到期',
+          body: body,
+        );
+      }
     }
 
     // 当天提醒
@@ -152,7 +167,7 @@ class NotificationService {
     );
     if (onDueDay.isAfter(now)) {
       await schedule(
-        id: todoHash + 1,
+        id: todoHash,
         title: '待办今日到期',
         body: '"$title" 今天到期，请及时处理',
         scheduledDate: onDueDay,
@@ -160,9 +175,8 @@ class NotificationService {
     } else if (onDueDay.year == now.year &&
         onDueDay.month == now.month &&
         onDueDay.day == now.day) {
-      // 到期日当天但已过 9 点，立即提醒
       await show(
-        id: todoHash + 1,
+        id: todoHash,
         title: '待办今日到期',
         body: '"$title" 今天到期，请及时处理',
       );
@@ -170,14 +184,48 @@ class NotificationService {
   }
 
   /// 为 Countdown 设置到期提醒
-  /// 目标日当天提醒
+  /// remindAdvance: 提前提醒分钟数，0=当天，1440=提前1天，4320=提前3天
+  /// 从提前N天到当天，每天都发提醒
   Future<void> scheduleCountdownReminder({
     required String countdownId,
     required String title,
     required DateTime targetDate,
+    int remindAdvance = 1440,
   }) async {
     final hash = countdownId.hashCode & 0x7FFFFFFF;
     final now = DateTime.now();
+    final daysAhead = remindAdvance ~/ 1440;
+
+    // 从提前N天到提前1天，每天提醒
+    for (var d = daysAhead; d >= 1; d--) {
+      final reminderDate = targetDate.subtract(Duration(days: d));
+      final reminderTime = DateTime(
+        reminderDate.year,
+        reminderDate.month,
+        reminderDate.day,
+        8, // 早上 8 点
+        0,
+      );
+      final body = '"$title" 还有$d天到来';
+      if (reminderTime.isAfter(now)) {
+        await schedule(
+          id: hash + 1000000 + d,
+          title: '倒计时提醒',
+          body: body,
+          scheduledDate: reminderTime,
+        );
+      } else if (reminderTime.year == now.year &&
+          reminderTime.month == now.month &&
+          reminderTime.day == now.day) {
+        await show(
+          id: hash + 1000000 + d,
+          title: '倒计时提醒',
+          body: body,
+        );
+      }
+    }
+
+    // 当天提醒
     final reminderTime = DateTime(
       targetDate.year,
       targetDate.month,
@@ -188,7 +236,7 @@ class NotificationService {
 
     if (reminderTime.isAfter(now)) {
       await schedule(
-        id: hash + 1000000, // 避免与 Todo ID 冲突
+        id: hash + 1000000,
         title: '倒计时提醒',
         body: '"$title" 的目标日到了！',
         scheduledDate: reminderTime,
@@ -196,7 +244,6 @@ class NotificationService {
     } else if (reminderTime.year == now.year &&
         reminderTime.month == now.month &&
         reminderTime.day == now.day) {
-      // 目标日当天但已过 8 点，立即提醒
       await show(
         id: hash + 1000000,
         title: '倒计时提醒',

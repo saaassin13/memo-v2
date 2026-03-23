@@ -252,6 +252,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               note: data.note,
               completed: todo.completed,
               remind: data.remind,
+              remindAdvance: data.remindAdvance,
               createdAt: todo.createdAt,
               updatedAt: DateTime.now(),
             );
@@ -272,6 +273,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
                   dueDate: data.dueDate,
                   note: data.note,
                   remind: data.remind,
+                  remindAdvance: data.remindAdvance,
                 );
           }
           // Schedule reminder notification
@@ -281,6 +283,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               todoId: todo?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
               title: data.title,
               dueDate: data.dueDate!,
+              remindAdvance: data.remindAdvance,
             );
           }
         },

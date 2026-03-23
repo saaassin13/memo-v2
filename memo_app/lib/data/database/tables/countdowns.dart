@@ -20,6 +20,9 @@ class Countdowns extends Table {
   /// 是否开启提醒
   BoolColumn get remind => boolean().withDefault(const Constant(false))();
 
+  /// 提前提醒时间（分钟），0=当天，1440=提前1天，4320=提前3天
+  IntColumn get remindAdvance => integer().withDefault(const Constant(1440))();
+
   /// 图标
   TextColumn get icon => text().nullable()();
 

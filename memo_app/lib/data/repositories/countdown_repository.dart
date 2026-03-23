@@ -55,6 +55,8 @@ class CountdownRepository {
         targetDate: Value(countdown.targetDate),
         type: Value(countdown.type),
         repeatYearly: Value(countdown.repeatYearly),
+        remind: Value(countdown.remind),
+        remindAdvance: Value(countdown.remindAdvance),
         icon: Value(countdown.icon),
         color: Value(countdown.color),
         updatedAt: Value(DateTime.now()),

@@ -17,6 +17,7 @@ class TodoData {
     this.dueDate,
     this.note,
     this.remind = false,
+    this.remindAdvance = 1440,
   });
 
   /// The todo title.
@@ -33,6 +34,9 @@ class TodoData {
 
   /// Whether to enable reminder notification.
   final bool remind;
+
+  /// Advance reminder time in minutes. 0=same day, 1440=1 day, 4320=3 days.
+  final int remindAdvance;
 }
 
 /// A bottom sheet for creating or editing a todo.
@@ -60,8 +64,15 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   String _category = '杂项';
   DateTime? _dueDate;
   bool _remind = false;
+  int _remindAdvance = 1440;
 
   static const List<String> _categories = ['工作', '生活', '学习', '杂项'];
+  static const List<int> _advanceOptions = [0, 1440, 4320];
+  static const Map<int, String> _advanceLabels = {
+    0: '当天',
+    1440: '前一天',
+    4320: '前三天',
+  };
 
   @override
   void initState() {
@@ -71,6 +82,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
     _category = widget.todo?.category ?? '杂项';
     _dueDate = widget.todo?.dueDate;
     _remind = widget.todo?.remind ?? false;
+    _remindAdvance = widget.todo?.remindAdvance ?? 1440;
   }
 
   @override
@@ -125,6 +137,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
     setState(() {
       _dueDate = null;
       _remind = false;
+      _remindAdvance = 1440;
     });
   }
 
@@ -140,6 +153,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
       dueDate: _dueDate,
       note: _noteController.text.trim().isNotEmpty ? _noteController.text.trim() : null,
       remind: _remind,
+      remindAdvance: _remindAdvance,
     );
     widget.onSave(data);
     Navigator.pop(context);
@@ -222,6 +236,11 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
             if (_dueDate != null) ...[
               const SizedBox(height: 16),
               _buildReminderToggle(isDark),
+            ],
+            // Advance time selector (only when remind is on)
+            if (_remind && _dueDate != null) ...[
+              const SizedBox(height: 12),
+              _buildAdvanceTimeSelector(isDark),
             ],
             const SizedBox(height: 16),
             // Note input
@@ -377,7 +396,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                     ),
                   ),
                   Text(
-                    '提前1天和当天各提醒一次',
+                    '设置提醒时间，到期当天也会提醒',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
@@ -399,5 +418,186 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
         ),
       ),
     );
+  }
+
+  Widget _buildAdvanceTimeSelector(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '提前提醒',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ..._advanceOptions.map((minutes) {
+                final isSelected = _remindAdvance == minutes;
+                final label = _advanceLabels[minutes]!;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _remindAdvance = minutes;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (isDark ? AppColorsDark.primary : AppColors.primary)
+                            : (isDark ? AppColorsDark.muted : AppColors.muted),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? (isDark ? AppColorsDark.primary : AppColors.primary)
+                              : (isDark ? AppColorsDark.border : AppColors.border),
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected
+                              ? (isDark
+                                  ? AppColorsDark.primaryForeground
+                                  : AppColors.primaryForeground)
+                              : (isDark
+                                  ? AppColorsDark.foreground
+                                  : AppColors.foreground),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              // Custom option
+              Builder(
+                builder: (context) {
+                  final isCustom = !_advanceOptions.contains(_remindAdvance);
+                  return GestureDetector(
+                    onTap: () => _showCustomAdvancePicker(isDark),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isCustom
+                            ? (isDark ? AppColorsDark.primary : AppColors.primary)
+                            : (isDark ? AppColorsDark.muted : AppColors.muted),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isCustom
+                              ? (isDark ? AppColorsDark.primary : AppColors.primary)
+                              : (isDark ? AppColorsDark.border : AppColors.border),
+                        ),
+                      ),
+                      child: Text(
+                        isCustom ? _formatCustomAdvance(_remindAdvance) : '自定义',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isCustom ? FontWeight.w600 : FontWeight.w400,
+                          color: isCustom
+                              ? (isDark
+                                  ? AppColorsDark.primaryForeground
+                                  : AppColors.primaryForeground)
+                              : (isDark
+                                  ? AppColorsDark.foreground
+                                  : AppColors.foreground),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatCustomAdvance(int minutes) {
+    if (minutes < 60) return '${minutes}分钟前';
+    if (minutes < 1440) return '${minutes ~/ 60}小时前';
+    final days = minutes ~/ 1440;
+    return '${days}天前';
+  }
+
+  Future<void> _showCustomAdvancePicker(bool isDark) async {
+    final controller = TextEditingController(
+      text: (_remindAdvance ~/ 1440).toString(),
+    );
+
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColorsDark.card : AppColors.card,
+        title: Text(
+          '自定义提前天数',
+          style: TextStyle(
+            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: '天数',
+            labelStyle: TextStyle(
+              color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: isDark ? AppColorsDark.border : AppColors.border,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(
+                color: isDark ? AppColorsDark.primary : AppColors.primary,
+              ),
+            ),
+          ),
+          style: TextStyle(
+            color: isDark ? AppColorsDark.foreground : AppColors.foreground,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '取消',
+              style: TextStyle(
+                color: isDark ? AppColorsDark.mutedForeground : AppColors.mutedForeground,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final days = int.tryParse(controller.text) ?? 1;
+              Navigator.pop(context, days * 1440);
+            },
+            child: Text(
+              '确定',
+              style: TextStyle(
+                color: isDark ? AppColorsDark.primary : AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _remindAdvance = result;
+      });
+    }
   }
 }

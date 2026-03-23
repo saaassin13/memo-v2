@@ -36,6 +36,7 @@ class TodoList extends _$TodoList {
     DateTime? dueDate,
     String? note,
     bool remind = false,
+    int remindAdvance = 1440,
   }) async {
     final repo = ref.read(todoRepositoryProvider);
     final now = DateTime.now();
@@ -47,6 +48,7 @@ class TodoList extends _$TodoList {
       note: Value(note),
       completed: const Value(false),
       remind: Value(remind),
+      remindAdvance: Value(remindAdvance),
       createdAt: Value(now),
       updatedAt: Value(now),
     ));

@@ -79,6 +79,8 @@ class TodoRepository {
         dueDate: Value(todo.dueDate),
         note: Value(todo.note),
         completed: Value(todo.completed),
+        remind: Value(todo.remind),
+        remindAdvance: Value(todo.remindAdvance),
         updatedAt: Value(DateTime.now()),
       ),
     );

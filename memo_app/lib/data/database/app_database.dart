@@ -35,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -53,6 +53,11 @@ class AppDatabase extends _$AppDatabase {
           // 添加提醒字段
           await m.addColumn(todos, todos.remind);
           await m.addColumn(countdowns, countdowns.remind);
+        }
+        if (from < 4) {
+          // 添加提前提醒时间字段
+          await m.addColumn(todos, todos.remindAdvance);
+          await m.addColumn(countdowns, countdowns.remindAdvance);
         }
       },
       beforeOpen: (details) async {
