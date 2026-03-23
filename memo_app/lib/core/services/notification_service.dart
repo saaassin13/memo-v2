@@ -31,6 +31,7 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings);
+    await requestPermission();
     _initialized = true;
   }
 
@@ -122,6 +123,7 @@ class NotificationService {
     required DateTime dueDate,
   }) async {
     final todoHash = todoId.hashCode & 0x7FFFFFFF;
+    final now = DateTime.now();
 
     // 提前 1 天提醒
     final oneDayBefore = DateTime(
@@ -131,7 +133,7 @@ class NotificationService {
       9, // 早上 9 点
       0,
     );
-    if (oneDayBefore.isAfter(DateTime.now())) {
+    if (oneDayBefore.isAfter(now)) {
       await schedule(
         id: todoHash,
         title: '待办即将到期',
@@ -148,12 +150,21 @@ class NotificationService {
       9,
       0,
     );
-    if (onDueDay.isAfter(DateTime.now())) {
+    if (onDueDay.isAfter(now)) {
       await schedule(
         id: todoHash + 1,
         title: '待办今日到期',
         body: '"$title" 今天到期，请及时处理',
         scheduledDate: onDueDay,
+      );
+    } else if (onDueDay.year == now.year &&
+        onDueDay.month == now.month &&
+        onDueDay.day == now.day) {
+      // 到期日当天但已过 9 点，立即提醒
+      await show(
+        id: todoHash + 1,
+        title: '待办今日到期',
+        body: '"$title" 今天到期，请及时处理',
       );
     }
   }
@@ -166,6 +177,7 @@ class NotificationService {
     required DateTime targetDate,
   }) async {
     final hash = countdownId.hashCode & 0x7FFFFFFF;
+    final now = DateTime.now();
     final reminderTime = DateTime(
       targetDate.year,
       targetDate.month,
@@ -174,12 +186,21 @@ class NotificationService {
       0,
     );
 
-    if (reminderTime.isAfter(DateTime.now())) {
+    if (reminderTime.isAfter(now)) {
       await schedule(
         id: hash + 1000000, // 避免与 Todo ID 冲突
         title: '倒计时提醒',
         body: '"$title" 的目标日到了！',
         scheduledDate: reminderTime,
+      );
+    } else if (reminderTime.year == now.year &&
+        reminderTime.month == now.month &&
+        reminderTime.day == now.day) {
+      // 目标日当天但已过 8 点，立即提醒
+      await show(
+        id: hash + 1000000,
+        title: '倒计时提醒',
+        body: '"$title" 的目标日到了！',
       );
     }
   }
