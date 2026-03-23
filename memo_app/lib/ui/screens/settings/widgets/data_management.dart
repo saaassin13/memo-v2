@@ -438,6 +438,33 @@ class DataManagement extends ConsumerWidget {
     await db.delete(db.countdowns).go();
   }
 
+  /// 从 Delta JSON 内容中提取图片路径（兼容 List 和 Map 格式）
+  Set<String> _extractImagePathsFromDelta(String content) {
+    final imagePaths = <String>{};
+    try {
+      final decoded = jsonDecode(content);
+      List ops;
+      if (decoded is List) {
+        ops = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        ops = decoded['ops'] as List? ?? [];
+      } else {
+        return imagePaths;
+      }
+      for (final op in ops) {
+        if (op is! Map) continue;
+        final insert = op['insert'];
+        if (insert is Map && insert['image'] is String) {
+          final imagePath = insert['image'] as String;
+          if (imagePath.startsWith('/')) {
+            imagePaths.add(imagePath);
+          }
+        }
+      }
+    } catch (_) {}
+    return imagePaths;
+  }
+
   /// 收集所有备忘录和日记中引用的图片路径
   Future<Set<String>> _collectImagePaths(AppDatabase db) async {
     final imagePaths = <String>{};
@@ -445,40 +472,14 @@ class DataManagement extends ConsumerWidget {
     // 从备忘录 Delta JSON 中提取图片路径
     final memos = await db.select(db.memos).get();
     for (final memo in memos) {
-      try {
-        final delta = jsonDecode(memo.content) as Map<String, dynamic>;
-        final ops = delta['ops'] as List? ?? [];
-        for (final op in ops) {
-          final insert = op['insert'];
-          if (insert is Map && insert['image'] is String) {
-            final imagePath = insert['image'] as String;
-            if (imagePath.startsWith('/')) {
-              imagePaths.add(imagePath);
-            }
-          }
-        }
-      } catch (_) {
-        // content 不是有效的 JSON Delta，跳过
-      }
+      imagePaths.addAll(_extractImagePathsFromDelta(memo.content));
     }
 
-    // 从日记图片列表中提取路径（旧数据格式）
+    // 从日记中提取图片路径
     final diaries = await db.select(db.diaryEntries).get();
     for (final diary in diaries) {
       // 从日记 Delta JSON content 中提取图片路径
-      try {
-        final delta = jsonDecode(diary.content) as Map<String, dynamic>;
-        final ops = delta['ops'] as List? ?? [];
-        for (final op in ops) {
-          final insert = op['insert'];
-          if (insert is Map && insert['image'] is String) {
-            final imagePath = insert['image'] as String;
-            if (imagePath.startsWith('/')) {
-              imagePaths.add(imagePath);
-            }
-          }
-        }
-      } catch (_) {}
+      imagePaths.addAll(_extractImagePathsFromDelta(diary.content));
       // 从旧的 images 列中提取路径（向后兼容）
       if (diary.images != null && diary.images!.isNotEmpty) {
         try {
@@ -496,12 +497,26 @@ class DataManagement extends ConsumerWidget {
   }
 
   /// 重新映射 JSON 数据中的图片路径（恢复时使用）
+  /// Flutter Quill 的 Delta.toJson() 返回 List 格式，同时也兼容 {"ops": [...]} 格式
   String _remapMemoContent(String content, Map<String, String> pathMapping) {
     try {
-      final delta = jsonDecode(content) as Map<String, dynamic>;
-      final ops = delta['ops'] as List? ?? [];
+      final decoded = jsonDecode(content);
+      List ops;
+      dynamic root;
+      if (decoded is List) {
+        // Flutter Quill Delta.toJson() 直接返回 List
+        ops = decoded;
+        root = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        // 兼容 {"ops": [...]} 格式
+        ops = decoded['ops'] as List? ?? [];
+        root = decoded;
+      } else {
+        return content;
+      }
       bool modified = false;
       for (final op in ops) {
+        if (op is! Map) continue;
         final insert = op['insert'];
         if (insert is Map && insert['image'] is String) {
           final oldPath = insert['image'] as String;
@@ -513,7 +528,7 @@ class DataManagement extends ConsumerWidget {
         }
       }
       if (modified) {
-        return jsonEncode(delta);
+        return jsonEncode(root);
       }
     } catch (_) {}
     return content;
