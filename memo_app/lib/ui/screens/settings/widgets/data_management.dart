@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -69,6 +70,7 @@ class DataManagement extends ConsumerWidget {
 
       // 收集所有图片路径
       final imagePaths = await _collectImagePaths(db);
+      debugPrint('[Backup] 收集到 ${imagePaths.length} 张图片: $imagePaths');
 
       // 创建 ZIP 归档
       final archive = Archive();
@@ -162,6 +164,7 @@ class DataManagement extends ConsumerWidget {
             imageFiles[fileName] = archiveFile.content!;
           }
         }
+        debugPrint('[Restore] ZIP 中找到 ${imageFiles.length} 张图片: ${imageFiles.keys.toList()}');
       } else {
         // 兼容旧版 JSON 格式
         data = jsonDecode(utf8.decode(fileBytes)) as Map<String, dynamic>;
@@ -181,6 +184,7 @@ class DataManagement extends ConsumerWidget {
           pathMapping[entry.key] = imageFile.path;
         }
       }
+      debugPrint('[Restore] pathMapping: $pathMapping');
 
       await _importData(db, data, pathMapping);
 
@@ -330,6 +334,7 @@ class DataManagement extends ConsumerWidget {
 
     // Import diaries（重新映射图片路径）
     final diaries = data['diaries'] as List? ?? [];
+    debugPrint('[Restore] 导入 ${diaries.length} 条日记');
     for (final item in diaries) {
       String content = item['content'];
       String? images = item['images'];
@@ -528,6 +533,7 @@ class DataManagement extends ConsumerWidget {
         }
       }
       if (modified) {
+        debugPrint('[Remap] 图片路径已重新映射');
         return jsonEncode(root);
       }
     } catch (_) {}
