@@ -53,6 +53,7 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^18.0.0
   timezone: ^0.9.4
+  reorderable_grid_view: ^2.2.8
 
 dev_dependencies:
   flutter_test:

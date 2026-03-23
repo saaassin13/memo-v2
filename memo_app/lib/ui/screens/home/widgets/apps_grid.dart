@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/colors.dart';
 import '../../../../core/router/routes.dart';
@@ -22,8 +25,8 @@ class AppItem {
   });
 }
 
-/// Predefined app items for the home screen grid
-const appItems = [
+/// All available app items
+const _allAppItems = [
   AppItem(
     id: 'memo',
     name: '备忘录',
@@ -68,19 +71,72 @@ const appItems = [
   ),
 ];
 
-/// A 3x2 grid displaying app entry tiles
-class AppsGrid extends StatelessWidget {
+const _defaultOrder = ['memo', 'countdown', 'diary', 'accounting', 'goals', 'weight'];
+
+/// A 3x2 grid with long-press drag reorder
+class AppsGrid extends StatefulWidget {
   const AppsGrid({super.key});
 
   @override
+  State<AppsGrid> createState() => _AppsGridState();
+}
+
+class _AppsGridState extends State<AppsGrid> {
+  late List<AppItem> _orderedItems;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderedItems = List.from(_allAppItems);
+    _loadOrder();
+  }
+
+  Future<void> _loadOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final order = prefs.getStringList('app_grid_order') ?? _defaultOrder;
+    final itemMap = {for (final item in _allAppItems) item.id: item};
+    final ordered = <AppItem>[];
+    for (final id in order) {
+      if (itemMap.containsKey(id)) ordered.add(itemMap[id]!);
+    }
+    for (final item in _allAppItems) {
+      if (!ordered.any((e) => e.id == item.id)) ordered.add(item);
+    }
+    if (mounted) setState(() => _orderedItems = ordered);
+    _loaded = true;
+  }
+
+  Future<void> _saveOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'app_grid_order',
+      _orderedItems.map((e) => e.id).toList(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GridView.count(
+    if (!_loaded) return const SizedBox(height: 240);
+
+    return ReorderableGridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      children: appItems.map((app) => _AppTile(app: app)).toList(),
+      dragStartDelay: const Duration(milliseconds: 300),
+      onDragStart: (_) => HapticFeedback.mediumImpact(),
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          final item = _orderedItems.removeAt(oldIndex);
+          _orderedItems.insert(newIndex, item);
+        });
+        _saveOrder();
+      },
+      children: _orderedItems
+          .map((app) => _AppTile(key: ValueKey(app.id), app: app))
+          .toList(),
     );
   }
 }
@@ -89,7 +145,7 @@ class AppsGrid extends StatelessWidget {
 class _AppTile extends StatefulWidget {
   final AppItem app;
 
-  const _AppTile({required this.app});
+  const _AppTile({required ValueKey super.key, required this.app});
 
   @override
   State<_AppTile> createState() => _AppTileState();
@@ -97,8 +153,6 @@ class _AppTile extends StatefulWidget {
 
 class _AppTileState extends State<_AppTile> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _shadowAnimation;
 
   @override
   void initState() {
@@ -106,12 +160,6 @@ class _AppTileState extends State<_AppTile> with SingleTickerProviderStateMixin 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 100),
       vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    _shadowAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
 
@@ -121,79 +169,57 @@ class _AppTileState extends State<_AppTile> with SingleTickerProviderStateMixin 
     super.dispose();
   }
 
-  void _onTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
-  }
-
-  void _onTapCancel() {
-    _controller.reverse();
-  }
-
-  void _onTap() {
-    context.push(widget.app.route);
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onTap: _onTap,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: () => context.push(widget.app.route),
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
+          final scale = 1.0 - (_controller.value * 0.05);
+          final shadowOpacity = 1.0 - (_controller.value * 0.5);
           return Transform.scale(
-            scale: _scaleAnimation.value,
+            scale: scale,
             child: Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05 * _shadowAnimation.value),
-                    blurRadius: 4 * _shadowAnimation.value,
-                    offset: Offset(0, 1 * _shadowAnimation.value),
+                    color: Colors.black.withOpacity(0.05 * shadowOpacity),
+                    blurRadius: 4 * shadowOpacity,
+                    offset: Offset(0, 1 * shadowOpacity),
                   ),
                 ],
               ),
-              child: child,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: widget.app.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(widget.app.icon, size: 28, color: widget.app.color),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.app.name,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           );
         },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: widget.app.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                widget.app.icon,
-                size: 28,
-                color: widget.app.color,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.app.name,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
       ),
     );
   }
